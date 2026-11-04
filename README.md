@@ -95,6 +95,38 @@ Focus te recuerda hacer una copia si llevas más de 30 días sin una.
 
 > Los datos dependen del lugar desde donde abres la aplicación. Si mueves `focus.html` a otra carpeta o lo sirves desde otra dirección, es posible que no veas tus datos anteriores. Exporta una copia antes de moverlo.
 
+## Notas
+
+`notas.html` organiza tus apuntes en cuadernos y páginas:
+
+- **Cuadernos:** puedes crearlos, renombrarlos y eliminarlos.
+- **Reordenar:** mantén pulsado un momento un cuaderno o una página y arrástralo. El retraso evita moverlos por accidente. Con el teclado, usa `Alt` + `↑` o `↓`. Mientras haya una búsqueda activa, las páginas no se pueden mover.
+- **Páginas:** tienen título, color y buscador por cuaderno. Se guardan solas mientras escribes.
+- **Formato:** una barra fija en la parte superior de la página ofrece negrita, cursiva, subrayado, estilos, color, resaltado, listas y quitar formato.
+- **Checklist:** el botón del pie de la página convierte cada línea del texto en un elemento por marcar, y **Texto libre** lo devuelve a líneas. Si no cambiaste los elementos, el texto vuelve idéntico, con su formato; si los cambiaste, vuelve con una línea por elemento y sin formato. Las marcas se recuerdan y las imágenes se quedan donde están.
+- **Imágenes:** consulta [Imágenes en las notas](#imágenes-en-las-notas).
+
+Sus datos están separados de los de Focus, en otra base de IndexedDB, y tienen su propia copia de seguridad con los botones **Exportar** e **Importar**. Importar **reemplaza todas las notas**, previa confirmación. La copia de Focus no incluye las notas.
+
+### Imágenes en las notas
+
+Pega una imagen con `Ctrl+V` o arrastra un archivo de imagen a la página. Se admiten PNG, JPEG, WebP y GIF. Las imágenes quedan **encima de la hoja**: no desplazan el texto y puedes dejarlas en cualquier punto.
+
+- **Seleccionar:** haz clic en la imagen. En táctil, tócala.
+- **Mover:** arrástrala a donde quieras. Lo arrastrado queda encima de las demás imágenes. Con el teclado, usa las flechas: 10 px, o 1 px con `Mayús`.
+- **Cambiar el tamaño:** arrastra una esquina. Se mantiene la proporción y la esquina contraria se queda quieta.
+- **Eliminar:** usa el botón de la imagen o `Supr`. El aviso ofrece **Deshacer**.
+
+Las imágenes se reducen a 1600 px de ancho, se comprimen en WebP y se guardan como binario en su propio almacén de IndexedDB, separadas del texto. La copia de seguridad las incluye en base64.
+
+Ten en cuenta estos límites:
+
+- La imagen no sigue al texto: si escribes más arriba, el texto pasa por debajo de ella. El texto tapado no se puede seleccionar hasta que muevas la imagen.
+- Su posición horizontal y su ancho son proporcionales a la hoja, y su altura se mide desde el borde superior. Con otro ancho de ventana el texto se reacomoda, así que puede quedar sobre otra parte del texto.
+- `Ctrl+Z` no afecta a las imágenes.
+- Al pegar desde una web texto con imágenes, solo se conserva el texto. Las imágenes externas se descartan para no cargar nada de internet sin que lo pidas.
+- El buscador no encuentra el contenido de las imágenes.
+
 ## Tecnología
 
 Focus está hecho con HTML, CSS y JavaScript puros, sin frameworks, dependencias ni proceso de compilación. Para modificarlo, edita `focus.html` y recarga la página.
