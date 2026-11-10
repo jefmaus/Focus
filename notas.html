@@ -921,8 +921,9 @@ function deletePage() {
 
 /* ---------- Arrastrar para reordenar ---------- */
 
-// Hay que mantener pulsado un momento: un clic algo largo no debe mover nada por accidente.
-const DRAG_DELAY = 300;
+// Con mouse se arrastra en cuanto se mueve; en táctil hay que mantener pulsado, porque deslizar es desplazar la lista.
+const DRAG_MOUSE_START = 5;
+const DRAG_DELAY = 200;
 const DRAG_TOLERANCE = 8;
 const DRAG_SCROLL_EDGE = 36;
 
@@ -1024,9 +1025,18 @@ function makeSortable(list, { enabled, onSort }) {
   function onMove(e) {
     if (press) {
       if (e.pointerId !== press.pointerId) return;
-      // Moverse antes de tiempo no es arrastrar: en táctil es desplazar la lista.
-      if (Math.hypot(e.clientX - press.x, e.clientY - press.y) > DRAG_TOLERANCE) settle();
-    } else if (drag && e.pointerId === drag.pointerId) {
+      const moved = Math.hypot(e.clientX - press.x, e.clientY - press.y);
+      if (press.pointerType !== 'mouse') {
+        // Moverse antes de tiempo no es arrastrar: en táctil es desplazar la lista.
+        if (moved > DRAG_TOLERANCE) settle();
+        return;
+      }
+      // Se soltó donde esta página no pudo enterarse (fuera del marco del lanzador).
+      if (e.buttons === 0) { settle(); return; }
+      if (moved <= DRAG_MOUSE_START) return;
+      start();
+    }
+    if (drag && e.pointerId === drag.pointerId) {
       // Se soltó donde esta página no pudo enterarse (fuera del marco del lanzador).
       if (e.pointerType === 'mouse' && e.buttons === 0) { finish(true); return; }
       drag.x = e.clientX;
@@ -1056,7 +1066,7 @@ function makeSortable(list, { enabled, onSort }) {
     if (e.target.closest('.nb-icon, input')) return;
     const row = e.target.closest('[data-id]');
     if (!row || row.parentElement !== list || rows().length < 2) return;
-    press = { id: row.dataset.id, pointerId: e.pointerId, pointerType: e.pointerType, x: e.clientX, y: e.clientY, timer: setTimeout(start, DRAG_DELAY) };
+    press = { id: row.dataset.id, pointerId: e.pointerId, pointerType: e.pointerType, x: e.clientX, y: e.clientY, timer: e.pointerType === 'mouse' ? null : setTimeout(start, DRAG_DELAY) };
     listen(true);
   });
 
