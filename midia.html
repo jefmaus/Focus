@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Focus</title>
+<title>Mi día</title>
 <style>
 :root {
   color-scheme: light dark;
@@ -441,6 +441,12 @@ kbd {
 .day-task .task-name { font-weight: 600; overflow-wrap: anywhere; }
 .day-task .task-time { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .day-task .task-plan { grid-column: 1 / -1; color: var(--muted); font-size: .8125rem; }
+.day-task { --bar: var(--accent); }
+.day-task.warn { --bar: var(--warn); }
+.day-task.warn .pct { color: var(--warn); font-weight: 600; }
+.day-task.over { --bar: var(--over); }
+.day-task.over .pct { color: var(--over); font-weight: 600; }
+.day-task.done .row-bar i { opacity: .55; }
 .session { display: flex; align-items: center; gap: 4px 8px; flex-wrap: wrap; padding: 4px 2px; font-size: .875rem; font-variant-numeric: tabular-nums; }
 .session .when { flex: 1; min-width: 150px; }
 .badge { font-size: .6875rem; padding: 1px 6px; border-radius: 4px; background: var(--surface-2); color: var(--muted); margin-left: 4px; }
@@ -631,7 +637,7 @@ body.pip {
 </head>
 <body>
 <header class="top">
-  <span class="brand">Focus</span>
+  <span class="brand">Mi día</span>
   <nav class="tabs" aria-label="Vistas">
     <a href="#hoy" data-view="hoy">Hoy</a>
     <a href="#calendario" data-view="calendario">Calendario</a>
@@ -1339,7 +1345,7 @@ function showForgot() {
   const now = Date.now();
   const sameDay = logicalDate(lastSeen) === logicalDate(now);
   const when = sameDay ? fmtHm(lastSeen) : `${fmtHm(lastSeen)} del ${fmtLongDate(logicalDate(lastSeen))}`;
-  $('forgotText').textContent = `Focus estuvo cerrado o en reposo desde las ${when}, con ${task ? task.name : 'una tarea'} en marcha. ¿Cuánto tiempo cuento?`;
+  $('forgotText').textContent = `Mi día estuvo cerrado o en reposo desde las ${when}, con ${task ? task.name : 'una tarea'} en marcha. ¿Cuánto tiempo cuento?`;
   $('forgotUntil').textContent = `Solo hasta las ${fmtHm(lastSeen)}`;
   $('forgotAll').textContent = `Contar todo (${fmtHuman(now - run.since)})`;
   $('forgotDialog').showModal();
@@ -1413,7 +1419,7 @@ function alertWarn(item) {
   showBanner('warn', text);
   flash();
   playTones([660, 880]);
-  notify('Focus: ya casi terminas', text);
+  notify('Mi día: ya casi terminas', text);
 }
 
 function alertEnd(item) {
@@ -1421,7 +1427,7 @@ function alertEnd(item) {
   showBanner('over', text);
   flash();
   playTones([880, 660, 880, 660]);
-  notify('Focus: tiempo cumplido', text);
+  notify('Mi día: tiempo cumplido', text);
 }
 
 function checkAlerts() {
@@ -1671,7 +1677,7 @@ function paint() {
     $('soundHint').hidden = !(live.running && settings.sound && !audioOk);
   } else {
     delete $('focus').dataset.state;
-    setText(document.querySelector('title'), 'Focus');
+    setText(document.querySelector('title'), 'Mi día');
     if (allDone) {
       const used = items.reduce((sum, i) => sum + usedOn(today, i.taskId), 0);
       setText($('doneText'), `Trabajaste ${fmtHuman(used)} en ${items.length} ${items.length === 1 ? 'tarea' : 'tareas'}.`);
@@ -1683,6 +1689,7 @@ function paint() {
   paintRows();
   paintSummary();
   paintPip(live);
+  sendTitle();
 }
 
 function paintCopyButtons() {
@@ -2222,13 +2229,28 @@ function addManual(date, taskId, input) {
   afterSessionChange();
 }
 
+// "Queda poco" solo tiene sentido hoy: en un día cerrado el tiempo ya no corre.
+function dayTaskState(item, used, date) {
+  if (item.done) return ' done';
+  const rem = item.plannedMs - used;
+  if (rem <= 0) return ' over';
+  return date === today && rem <= warnMsOf(item) ? ' warn' : '';
+}
+
+function renderAddTime(date, taskId, taskName) {
+  const time = h('input', { class: 'field', placeholder: 'Tiempo: 30m', 'aria-label': `Tiempo manual para ${taskName}` });
+  return h('form', { class: 'inline-form', onsubmit: e => { e.preventDefault(); addManual(date, taskId, time); } },
+    time, h('button', { class: 'btn small', type: 'submit', text: 'Añadir tiempo' }));
+}
+
 function renderDayDetail() {
   const date = cal.selected;
   const box = $('calDetail');
   if (!date) { box.replaceChildren(h('p', { class: 'empty-note', text: 'Elige un día para ver el detalle.' })); return; }
+  const isToday = date === today;
   const list = sessionsByDate.get(date) || [];
   const plan = planOf(date);
-  const ids = [...new Set([...plan.map(i => i.taskId), ...list.map(s => s.taskId), ...(run && date === today ? [run.taskId] : [])])];
+  const ids = [...new Set([...plan.map(i => i.taskId), ...list.map(s => s.taskId), ...(run && isToday ? [run.taskId] : [])])];
   const nodes = [
     h('h2', { text: fmtLongDate(date) }),
     h('div', { class: 'detail-total', text: `Total: ${fmtHuman(dayWorked(date))}` }),
@@ -2242,26 +2264,31 @@ function renderDayDetail() {
     const real = usedOn(date, id) + live;
     const own = list.filter(s => s.taskId === id).sort((a, b) => (a.start || Infinity) - (b.start || Infinity));
     const planLabel = item ? `de ${fmtPlan(item.plannedMs)} planificado${item.done ? ' · hecha' : ''}` : 'fuera del plan';
-    const time = h('input', { class: 'field', placeholder: 'Tiempo: 30m', 'aria-label': `Tiempo manual para ${task.name}` });
-    const details = h('details', { class: 'day-task', open: cal.open.has(id) },
+    const hasGoal = item && item.plannedMs > 0;
+    const details = h('details', { class: `day-task${hasGoal ? dayTaskState(item, real, date) : ''}`, open: cal.open.has(id) },
       h('summary', {},
         h('span', { class: 'task-name', text: task.name }),
         h('span', { class: 'task-time', text: fmtHuman(real) }),
-        h('span', { class: 'task-plan', text: planLabel })),
-      ...own.map(s => (cal.editing === s.id ? renderSessionEdit(s) :
+        h('span', { class: 'task-plan', text: planLabel }),
+        hasGoal ? h('span', { class: 'row-progress', style: `--p: ${Math.min(100, real / item.plannedMs * 100)}%` },
+          h('span', { class: 'row-bar' }, h('i')),
+          h('span', { class: 'pct', text: `${Math.floor(real / item.plannedMs * 100)}%` })) : null),
+      // Los días anteriores quedan cerrados: se pueden consultar, pero no cambiar.
+      ...own.map(s => (isToday && cal.editing === s.id ? renderSessionEdit(s) :
         h('div', { class: 'session' },
           h('span', { class: 'when' }, sessionWhen(s), s.source === 'manual' ? h('span', { class: 'badge', text: 'Manual' }) : null),
-          h('button', { class: 'btn small quiet', text: 'Editar', onclick: () => { cal.editing = s.id; renderCalendar(); } }),
-          h('button', { class: 'btn small quiet', text: 'Borrar', onclick: () => deleteSession(s) })))),
+          isToday ? h('button', { class: 'btn small quiet', text: 'Editar', onclick: () => { cal.editing = s.id; renderCalendar(); } }) : null,
+          isToday ? h('button', { class: 'btn small quiet', text: 'Borrar', onclick: () => deleteSession(s) }) : null))),
       live ? h('div', { class: 'session' }, h('span', { class: 'when', text: `Desde las ${fmtHm(run.since)} · en curso` })) : null,
-      h('form', { class: 'inline-form', onsubmit: e => { e.preventDefault(); addManual(date, id, time); } },
-        time, h('button', { class: 'btn small', type: 'submit', text: 'Añadir tiempo' })));
+      isToday ? renderAddTime(date, id, task.name) : null);
     details.addEventListener('toggle', () => {
       if (details.open) cal.open.add(id); else cal.open.delete(id);
     });
     nodes.push(details);
   }
-  const others = [...tasks.values()].filter(t => !t.archived && !ids.includes(t.id)).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  const others = isToday
+    ? [...tasks.values()].filter(t => !t.archived && !ids.includes(t.id)).sort((a, b) => a.name.localeCompare(b.name, 'es'))
+    : [];
   if (others.length) {
     const select = h('select', { class: 'field', 'aria-label': 'Tarea' }, ...others.map(t => h('option', { value: t.id, text: t.name })));
     const time = h('input', { class: 'field', placeholder: 'Tiempo: 30m', 'aria-label': 'Tiempo manual' });
@@ -2463,7 +2490,7 @@ function exportBackup() {
     sessions: [...sessions.values()],
   };
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }));
-  const a = h('a', { href: url, download: `focus-respaldo-${dateKey(new Date(Date.now()))}.json` });
+  const a = h('a', { href: url, download: `midia-respaldo-${dateKey(new Date(Date.now()))}.json` });
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
   settings.lastBackup = Date.now();
@@ -2477,7 +2504,7 @@ async function importBackup(file) {
     data = JSON.parse(await file.text());
     if (data.app !== 'foco' || !Array.isArray(data.tasks) || !Array.isArray(data.days) || !Array.isArray(data.sessions)) throw new Error('formato');
   } catch (e) {
-    toast('Ese archivo no es una copia de seguridad de Focus');
+    toast('Ese archivo no es una copia de seguridad de Mi día');
     return;
   }
   if (!confirm(`Se reemplazará todo lo guardado por la copia (${data.tasks.length} tareas, ${data.sessions.length} sesiones). ¿Continuar?`)) return;
@@ -2512,8 +2539,26 @@ function remindBackup() {
 /* ---------- Mini ventana flotante ---------- */
 
 let pip = null;
+let pipHosted = false;  // dentro del lanzador, la ventana la abre él y aquí solo se le envía el estado
+let pipSent = '';
 
 function paintPip(v) {
+  if (pipHosted) {
+    const state = {
+      state: v ? v.kind : '',
+      title: v ? v.task.name : 'Sin tarea activa',
+      value: v ? v.clock : '--:--',
+      foot: v ? `${v.elapsed} transcurrido` : '',
+      action: v && v.running ? 'Pausar' : 'Iniciar',
+      actionDisabled: !v,
+    };
+    const key = JSON.stringify(state);
+    if (key !== pipSent) {
+      pipSent = key;
+      tellLauncher({ type: 'pip-paint', ...state });
+    }
+    return;
+  }
   if (!pip) return;
   pip.body.dataset.state = v ? v.kind : '';
   setText(pip.title, v ? v.task.name : 'Sin tarea activa');
@@ -2523,12 +2568,32 @@ function paintPip(v) {
   pip.toggle.disabled = !v;
 }
 
+function showRunningTask() {
+  if (view !== 'hoy') location.hash = '#hoy';
+  if (activeId) selectTask(activeId);
+}
+
+// El navegador no dice si se pulsó "volver a la pestaña" o la X, pero al restaurar esta página recibe el foco.
+function showRunningIfFocused() {
+  const deadline = Date.now() + 1000;
+  const check = () => {
+    if (document.hasFocus()) showRunningTask();
+    else if (Date.now() < deadline) setTimeout(check, 50);
+  };
+  check();
+}
+
 async function openPip() {
-  if (pip) { pip.win.close(); return; }
+  // El navegador no deja abrir la mini ventana desde un marco, así que la abre el lanzador.
+  if (embedded) {
+    tellLauncher(pipHosted ? { type: 'pip-close' } : { type: 'pip-open', width: 340, height: 170 });
+    return;
+  }
+  if (pip) { pip.closing = true; pip.win.close(); return; }
   try {
     const win = await documentPictureInPicture.requestWindow({ width: 340, height: 170 });
     win.document.head.append(document.querySelector('style').cloneNode(true));
-    win.document.title = 'Focus';
+    win.document.title = 'Mi día';
     const body = win.document.body;
     body.className = 'pip';
     const make = (tag, cls) => {
@@ -2545,7 +2610,11 @@ async function openPip() {
     foot.append(elapsed, btn);
     body.append(title, clock, foot);
     pip = { win, body, title, clock, elapsed, toggle: btn };
-    win.addEventListener('pagehide', () => { pip = null; });
+    win.addEventListener('pagehide', () => {
+      const closedByUser = pip && !pip.closing;
+      pip = null;
+      if (closedByUser) showRunningIfFocused();
+    });
     paint();
   } catch (e) {
     toast('Este navegador no pudo abrir la mini ventana');
@@ -2738,7 +2807,7 @@ $('btnTest').addEventListener('click', () => {
   unlockAudio();
   flash();
   if (settings.sound) playTones([660, 880]);
-  notify('Focus: prueba', 'Así se verá el aviso');
+  notify('Mi día: prueba', 'Así se verá el aviso');
   toast(settings.sound ? 'Si no oíste nada, revisa el volumen del equipo' : 'El sonido está desactivado');
 });
 $('btnNotif').addEventListener('click', async () => {
@@ -2804,6 +2873,47 @@ function startTicking() {
   }
 }
 
+/* ---------- Lanzador (opcional) ---------- */
+
+// Dentro del lanzador, la aplicación le cuenta su título y si el reloj corre. Abierta sola, esto no hace nada.
+const embedded = window.parent !== window;
+
+function tellLauncher(message) {
+  if (embedded) parent.postMessage({ launcher: true, ...message }, location.protocol === 'file:' ? '*' : location.origin);
+}
+
+// Pausar una tarea excedida no cambia el título: por eso paint() también avisa, y solo se envía lo que cambió.
+let sentTitle = null;
+let sentBusy = null;
+function sendTitle() {
+  if (!embedded || (document.title === sentTitle && !!run === sentBusy)) return;
+  sentTitle = document.title;
+  sentBusy = !!run;
+  tellLauncher({ type: 'title', title: sentTitle, busy: sentBusy });
+}
+
+if (embedded) {
+  new MutationObserver(sendTitle).observe(document.querySelector('title'), { childList: true, characterData: true, subtree: true });
+  sendTitle();
+
+  window.addEventListener('message', e => {
+    if (e.source !== window.parent || !e.data || e.data.launcher !== true) return;
+    if (e.data.type === 'pip-opened') {
+      pipHosted = true;
+      pipSent = '';
+      paint();
+    } else if (e.data.type === 'pip-closed') {
+      pipHosted = false;
+    } else if (e.data.type === 'pip-restored') {
+      showRunningTask();
+    } else if (e.data.type === 'pip-action') {
+      toggleFromPip();
+    } else if (e.data.type === 'pip-failed') {
+      toast('El navegador no pudo abrir la mini ventana', 'Abrir aparte', () => tellLauncher({ type: 'detach' }));
+    }
+  });
+}
+
 /* ---------- Arranque ---------- */
 
 function block(title, text) {
@@ -2825,7 +2935,7 @@ function acquireLock() {
 
 async function init() {
   if (!(await acquireLock())) {
-    block('Focus ya está abierto', 'Usa la otra pestaña o ciérrala y reintenta. Así el tiempo no se cuenta dos veces.');
+    block('Mi día ya está abierto', 'Usa la otra pestaña o ciérrala y reintenta. Así el tiempo no se cuenta dos veces.');
     return;
   }
   try {

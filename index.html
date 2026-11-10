@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Byguen Desk</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #eeece6;
+  --surface: #ffffff;
+  --line: #dcd9d0;
+  --hover: #e3e0d8;
+  --text: #1e1f1c;
+  --muted: #6a6b64;
+  --accent: #0f6f62;
+  --rail: 248px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101214;
+    --surface: #15171a;
+    --line: #2b3036;
+    --hover: #1f2327;
+    --text: #eceded;
+    --muted: #9ba0a6;
+    --accent: #4fc9b5;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  display: grid;
+  grid-template-columns: var(--rail) minmax(0, 1fr);
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  transition: grid-template-columns .18s ease;
+}
+body.collapsed { --rail: 72px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+/* Menú lateral */
+.rail {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 14px 12px 12px;
+}
+.brand { display: flex; align-items: center; gap: 10px; min-height: 40px; margin-bottom: 18px; padding-left: 6px; }
+.mark { flex: none; display: block; width: auto; height: 28px; }
+.brand-name { flex: 1; min-width: 0; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; }
+.icon-btn {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  color: var(--muted);
+}
+.icon-btn:hover { background: var(--hover); color: var(--text); }
+.icon-btn svg { width: 16px; height: 16px; transition: transform .18s ease; }
+body.collapsed .icon-btn svg { transform: rotate(180deg); }
+.section {
+  margin: 0 0 6px 8px;
+  font-size: .6875rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.apps { display: grid; gap: 4px; }
+.app {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+.app:hover { background: var(--hover); }
+.app[aria-current="page"] { background: color-mix(in srgb, var(--c) 16%, transparent); }
+.app[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  top: 10px;
+  bottom: 10px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: var(--c);
+}
+.tile {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--c);
+  color: #fff;
+  transition: transform .12s ease;
+}
+.app:hover .tile { transform: scale(1.06); }
+.tile svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.pulse {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #e5484d;
+  border: 2px solid var(--bg);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse { 50% { box-shadow: 0 0 0 5px rgb(229 72 77 / .25); } }
+.app-text { flex: 1; min-width: 0; }
+.app-text b, .app-text small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app-text b { font-weight: 600; font-size: .9375rem; }
+.app-text small { color: var(--muted); font-size: .75rem; font-variant-numeric: tabular-nums; }
+.app.live small { color: var(--text); font-weight: 600; }
+.foot { margin-top: auto; padding-top: 12px; }
+.detach {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 8px;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: .8125rem;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.detach:hover { background: var(--hover); color: var(--text); }
+.detach svg { flex: none; width: 16px; height: 16px; margin: 0 10px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Menú contraído: solo íconos, con el nombre al pasar el cursor */
+body.collapsed .brand { justify-content: center; padding-left: 0; flex-wrap: wrap; gap: 8px; }
+body.collapsed .brand-name, body.collapsed .section, body.collapsed .app-text, body.collapsed .detach span { display: none; }
+body.collapsed .app { justify-content: center; }
+body.collapsed .detach { justify-content: center; padding: 6px 0; }
+body.collapsed [data-tip]:hover::after, body.collapsed [data-tip]:focus-visible::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: max-content;
+  max-width: 260px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: .8125rem;
+  font-weight: 500;
+  pointer-events: none;
+}
+body.collapsed .foot { position: relative; }
+
+/* Área de la aplicación */
+.stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  margin: 8px 8px 8px 0;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  visibility: hidden;
+}
+.frame.active { visibility: visible; animation: enter .16s ease; }
+@keyframes enter { from { opacity: 0; transform: translateY(4px); } }
+.away { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; }
+.away h1 { margin: 0 0 6px; font-size: 1.25rem; line-height: 1.25; }
+.away p { margin: 0 0 16px; color: var(--muted); }
+.away button {
+  min-height: 44px;
+  padding: 10px 16px;
+  background: var(--accent);
+  border: 0;
+  border-radius: 8px;
+  color: var(--surface);
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  body, body.collapsed { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .stage { grid-row: 1; margin: 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; }
+  .rail { grid-row: 2; padding: 4px 8px calc(4px + env(safe-area-inset-bottom)); }
+  .brand, .section, .foot { display: none; }
+  .apps { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+  .app, body.collapsed .app { flex-direction: column; justify-content: center; gap: 2px; min-height: 56px; padding: 4px; }
+  .app[aria-current="page"]::before { left: 25%; right: 25%; top: -4px; bottom: auto; width: auto; height: 3px; border-radius: 0 0 3px 3px; }
+  .tile { width: 28px; height: 28px; border-radius: 8px; }
+  .tile svg { width: 16px; height: 16px; }
+  .app-text, body.collapsed .app-text { display: block; flex: none; max-width: 100%; }
+  .app-text b { font-size: .75rem; text-align: center; }
+  .app-text small { display: none; }
+  body.collapsed [data-tip]:hover::after { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<aside class="rail">
+  <div class="brand">
+    <svg class="mark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45.6 63.2" aria-hidden="true">
+      <path fill="#18B3C5" d="M22.8 18.6C10.8 18.6 1 28.4 1 40.4s9.8 21.8 21.8 21.8 21.8-9.8 21.8-21.8-9.8-21.8-21.8-21.8m-.2 29.7c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8c.1 4.4-3.5 8-8 8"/>
+      <path opacity=".15" d="M4 1v39.2S3.7 60 25.6 62.1c0 0-8.6-12.4-9.9-56.2z"/>
+      <path fill="#18B3C5" d="M1 1v39.2S.7 60 22.6 62.1c0 0-8.6-12.4-9.9-56.2z"/>
+    </svg>
+    <span class="brand-name">Byguen Desk</span>
+    <button class="icon-btn" id="btnCollapse" aria-label="Contraer el menú" title="Contraer el menú" aria-expanded="true">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg>
+    </button>
+  </div>
+  <p class="section">Aplicaciones</p>
+  <nav class="apps" id="apps" aria-label="Aplicaciones"></nav>
+  <div class="foot">
+    <button class="detach" id="btnDetach">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9 3h4v4M13 3 7.500 8.500M6 4H3v9h9v-3"/></svg>
+      <span id="detachLabel"></span>
+    </button>
+  </div>
+</aside>
+
+<main class="stage" id="stage">
+  <div class="away" id="away" hidden>
+    <div>
+      <h1 id="awayTitle"></h1>
+      <p>Trabaja desde esa pestaña o tráela de vuelta aquí.</p>
+      <button id="btnBring">Traer aquí</button>
+    </div>
+  </div>
+</main>
+
+<script>
+'use strict';
+
+/*
+  Para agregar una aplicación, añade una línea a esta lista; para quitarla, bórrala.
+  - id:        nombre corto, se usa en la dirección (index.html#id).
+  - file:      archivo HTML de la aplicación, en esta misma carpeta.
+  - color:     color de su ícono.
+  - icon:      trazos SVG de su ícono, en una caja de 24×24.
+  - keepAlive: se carga al entrar aunque no la abras (para que sus avisos lleguen siempre).
+*/
+const APPS = [
+  {
+    id: 'midia', name: 'Mi día', file: 'midia.html', desc: 'Tiempo y tareas del día', color: '#0f8a7a', keepAlive: true,
+    icon: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.500 2M9.500 2.500h5"/>',
+  },
+  {
+    id: 'notas', name: 'Notas', file: 'notas.html', desc: 'Cuadernos y apuntes', color: '#c77a2c',
+    icon: '<path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9.500 12h6M9.500 16h6"/>',
+  },
+  {
+    id: 'navaja', name: 'Navaja suiza', file: 'navaja.html', desc: 'Herramientas de programador', color: '#4f5bd5',
+    icon: '<rect x="2.500" y="10" width="19" height="6.500" rx="3.250"/><path d="M5.500 10 15 4.500c1.200-.700 2.300.500 1.600 1.600L14.500 10"/><circle cx="6.500" cy="13.250" r="1"/>',
+  },
+];
+
+/* ---------- Estado ---------- */
+
+const $ = id => document.getElementById(id);
+const frames = new Map();    // id → iframe cargado
+const live = new Map();      // id → { title, busy } que cuenta la aplicación
+const links = new Map();     // id → elementos de su entrada en el menú
+const detached = new Map();  // id → ventana donde quedó abierta aparte
+let current = null;
+
+function load(key) {
+  try { return localStorage.getItem(`espacio.${key}`); } catch (e) { return null; }
+}
+function save(key, value) {
+  try { localStorage.setItem(`espacio.${key}`, value); } catch (e) { /* sin preferencia guardada */ }
+}
+
+const appById = id => APPS.find(a => a.id === id);
+
+/* ---------- Menú ---------- */
+
+function buildMenu() {
+  for (const app of APPS) {
+    const link = document.createElement('a');
+    link.className = 'app';
+    link.href = `#${app.id}`;
+    link.dataset.tip = app.name;
+    link.style.setProperty('--c', app.color);
+
+    const tile = document.createElement('span');
+    tile.className = 'tile';
+    tile.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${app.icon}</svg>`;
+    const pulse = document.createElement('i');
+    pulse.className = 'pulse';
+    pulse.hidden = true;
+    tile.append(pulse);
+
+    const text = document.createElement('span');
+    text.className = 'app-text';
+    const name = document.createElement('b');
+    name.textContent = app.name;
+    const sub = document.createElement('small');
+    text.append(name, sub);
+
+    link.append(tile, text);
+    $('apps').append(link);
+    links.set(app.id, { link, pulse, sub });
+    paintEntry(app);
+  }
+}
+
+function paintEntry(app) {
+  const { link, pulse, sub } = links.get(app.id);
+  const info = live.get(app.id);
+  // El menú solo cuenta lo que está en marcha; en reposo muestra la descripción de la aplicación.
+  const status = info && info.busy && info.title && info.title !== app.name ? info.title : '';
+  const text = detached.has(app.id) ? 'En otra pestaña' : status || app.desc;
+  sub.textContent = text;
+  link.classList.toggle('live', !!status && !detached.has(app.id));
+  link.dataset.tip = status ? `${app.name} · ${status}` : app.name;
+  pulse.hidden = !(info && info.busy) || detached.has(app.id);
+}
+
+function paintTab() {
+  // Lo que está en marcha manda: así el reloj se ve en la pestaña desde cualquier aplicación.
+  const busy = APPS.find(a => live.get(a.id) && live.get(a.id).busy);
+  const info = live.get(current);
+  document.title = busy ? live.get(busy.id).title
+    : info && info.title && info.title !== appById(current).name ? info.title
+    : appById(current) ? `${appById(current).name} · Byguen Desk` : 'Byguen Desk';
+}
+
+/* ---------- Aplicaciones ---------- */
+
+function ensureFrame(app) {
+  if (frames.has(app.id) || detached.has(app.id)) return frames.get(app.id);
+  const frame = document.createElement('iframe');
+  frame.className = 'frame';
+  frame.title = app.name;
+  frame.src = app.file;
+  frame.allow = 'autoplay; clipboard-read; clipboard-write';
+  frame.addEventListener('load', () => {
+    // Si la aplicación se recargó, su mini ventana ya no tiene quién la alimente.
+    closeMini(app.id);
+    if (current === app.id) frame.focus();
+  });
+  frames.set(app.id, frame);
+  $('stage').append(frame);
+  return frame;
+}
+
+function show(id) {
+  const app = appById(id) || APPS[0];
+  current = app.id;
+  save('app', app.id);
+  const frame = ensureFrame(app);
+  for (const [frameId, node] of frames) node.classList.toggle('active', frameId === app.id);
+  for (const [linkId, entry] of links) {
+    if (linkId === app.id) entry.link.setAttribute('aria-current', 'page');
+    else entry.link.removeAttribute('aria-current');
+  }
+  const isAway = detached.has(app.id);
+  $('away').hidden = !isAway;
+  $('awayTitle').textContent = `${app.name} está abierta en otra pestaña`;
+  $('btnDetach').hidden = isAway;
+  $('detachLabel').textContent = `Abrir ${app.name} aparte`;
+  $('btnDetach').dataset.tip = `Abrir ${app.name} aparte`;
+  $('btnDetach').title = `Abrir ${app.name} en una pestaña propia`;
+  paintTab();
+  if (frame) frame.focus();
+}
+
+// Retirar el marco libera el bloqueo de pestaña única de la aplicación, y la pestaña nueva puede tomarlo.
+function detach(id) {
+  const app = appById(id);
+  if (!app || detached.has(id)) return;
+  closeMini(id);
+  const frame = frames.get(id);
+  if (frame) frame.remove();
+  frames.delete(id);
+  live.delete(id);
+  detached.set(id, window.open(app.file, `app-${id}`));
+  paintEntry(app);
+  if (current === id) show(id);
+  else paintTab();
+}
+
+function bringBack(id) {
+  const app = appById(id);
+  const win = detached.get(id);
+  detached.delete(id);
+  try { if (win) win.close(); } catch (e) { /* ya estaba cerrada */ }
+  paintEntry(app);
+  $('away').hidden = true;
+  // Se da un momento a la pestaña para cerrarse y soltar el bloqueo.
+  setTimeout(() => { if (current === id) show(id); else ensureFrame(app); }, 300);
+}
+
+/* ---------- Mini ventana ---------- */
+
+// El navegador solo deja abrirla desde la página principal. Aquí se abre y se pinta;
+// la aplicación envía lo que debe mostrar y recibe el clic de su botón.
+const MINI_CSS = `
+:root {
+  color-scheme: light dark;
+  --surface: #ffffff; --line: #dcd9d0; --text: #1e1f1c; --muted: #6a6b64;
+  --warn: #a35c00; --over: #bb2d24; --bg: #f6f5f1;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #1d2024; --line: #363b41; --text: #eceded; --muted: #9ba0a6;
+    --warn: #f2b14c; --over: #ff7b6e; --bg: #15171a;
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 10px 14px;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+[data-state="running"] { --state: var(--text); }
+[data-state="paused"] { --state: var(--muted); }
+[data-state="warn"] { --state: var(--warn); }
+[data-state="over"] { --state: var(--over); }
+.mini-title { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-value { font-size: min(21vw, 46vh); line-height: 1.1; font-weight: 300; font-variant-numeric: tabular-nums; letter-spacing: -.03em; white-space: nowrap; color: var(--state, var(--text)); }
+.mini-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+button { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 2px 10px; min-height: 28px; color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .45; }
+button[hidden] { display: none; }
+`;
+
+let mini = null; // { win, appId, body, title, value, foot, action }
+
+function tellApp(appId, type) {
+  const frame = frames.get(appId);
+  if (frame) frame.contentWindow.postMessage({ launcher: true, type }, location.protocol === 'file:' ? '*' : location.origin);
+}
+
+const miniSize = (value, fallback) => Math.min(800, Math.max(100, Number(value) || fallback));
+
+async function openMini(app, width, height) {
+  try {
+    const win = await documentPictureInPicture.requestWindow({ width: miniSize(width, 340), height: miniSize(height, 170) });
+    const doc = win.document;
+    doc.title = app.name;
+    const style = doc.createElement('style');
+    style.textContent = MINI_CSS;
+    doc.head.append(style);
+    const make = (tag, className) => {
+      const node = doc.createElement(tag);
+      if (className) node.className = className;
+      return node;
+    };
+    const title = make('div', 'mini-title');
+    const value = make('div', 'mini-value');
+    const foot = make('div', 'mini-foot');
+    const footText = make('span');
+    const action = make('button');
+    action.hidden = true;
+    action.addEventListener('click', () => { if (mini) tellApp(mini.appId, 'pip-action'); });
+    foot.append(footText, action);
+    doc.body.append(title, value, foot);
+    mini = { win, appId: app.id, body: doc.body, title, value, foot: footText, action };
+    win.addEventListener('pagehide', () => {
+      if (!mini || mini.win !== win) return;
+      const closedByUser = !mini.closing;
+      mini = null;
+      tellApp(app.id, 'pip-closed');
+      if (closedByUser) restoreIfFocused(app);
+    });
+    tellApp(app.id, 'pip-opened');
+  } catch (e) {
+    tellApp(app.id, 'pip-failed');
+  }
+}
+
+function closeMini(appId) {
+  if (!mini || (appId && mini.appId !== appId)) return;
+  mini.closing = true;
+  mini.win.close();
+}
+
+// El navegador no dice si se pulsó "volver a la pestaña" o la X, pero al restaurar esta
+// página recibe el foco. Entonces se muestra la aplicación dueña, sea cual sea la que estaba a la vista.
+function restoreIfFocused(app) {
+  const deadline = Date.now() + 1000;
+  const check = () => {
+    if (document.hasFocus()) {
+      if (detached.has(app.id) || !frames.has(app.id)) return;
+      if (current !== app.id) location.hash = `#${app.id}`;
+      tellApp(app.id, 'pip-restored');
+    } else if (Date.now() < deadline) {
+      setTimeout(check, 50);
+    }
+  };
+  check();
+}
+
+function paintMini(appId, data) {
+  if (!mini || mini.appId !== appId) return;
+  mini.body.dataset.state = String(data.state || '');
+  mini.title.textContent = String(data.title || '');
+  mini.value.textContent = String(data.value || '');
+  mini.foot.textContent = String(data.foot || '');
+  mini.action.hidden = !data.action;
+  mini.action.textContent = String(data.action || '');
+  mini.action.disabled = data.actionDisabled === true;
+}
+
+/* ---------- Descargas ---------- */
+
+/*
+  Las aplicaciones piden aquí guardar sus archivos: desde su marco, el navegador no deja abrir
+  «Guardar como» ni descargar cuando el marco es de otro origen (como pasa con file://).
+  - Donde se puede (Chrome y Edge), se abre «Guardar como» y se escribe el archivo directamente,
+    sin pasar por el gestor de descargas, que en algunos equipos tarda 15–20 s en mostrarlas.
+  - Si no, se usa la descarga normal, y el mismo archivo pedido otra vez en menos de 30 s se
+    ignora, para no bajar copias por los clics repetidos.
+  Devuelve 'saved', 'cancelled', 'started' o 'repeated'.
+*/
+let lastSave = { key: '', at: 0 };
+async function saveFile(name, blob) {
+  const safe = String(name || 'archivo').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').slice(0, 150) || 'archivo';
+  if (typeof window.showSaveFilePicker === 'function') {
+    const ext = (/\.([a-z0-9]+)$/i.exec(safe) || [])[1];
+    const mime = (blob.type || 'application/octet-stream').split(';')[0];
+    const opts = { suggestedName: safe };
+    if (ext) opts.types = [{ description: `Archivo .${ext.toLowerCase()}`, accept: { [mime]: [`.${ext.toLowerCase()}`] } }];
+    try {
+      const handle = await window.showSaveFilePicker(opts).catch(e => {
+        if (e.name === 'TypeError' && opts.types) return window.showSaveFilePicker({ suggestedName: safe });
+        throw e;
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return 'saved';
+    } catch (e) {
+      if (e.name === 'AbortError') return 'cancelled';
+      // Sin permiso para la ventana: se usa la descarga normal.
+    }
+  }
+  const key = `${safe}|${blob.size}|${blob.type}`;
+  if (key === lastSave.key && Date.now() - lastSave.at < 30000) return 'repeated';
+  lastSave = { key, at: Date.now() };
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = safe;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  return 'started';
+}
+
+function answerApp(source, message) {
+  source.postMessage({ launcher: true, ...message }, location.protocol === 'file:' ? '*' : location.origin);
+}
+
+/* ---------- Mensajes de las aplicaciones ---------- */
+
+window.addEventListener('message', e => {
+  const data = e.data;
+  if (!data || data.launcher !== true) return;
+  const app = APPS.find(a => frames.get(a.id) && frames.get(a.id).contentWindow === e.source);
+  if (!app) return;
+  if (data.type === 'title' && typeof data.title === 'string') {
+    live.set(app.id, { title: data.title.slice(0, 120), busy: data.busy === true });
+    paintEntry(app);
+    paintTab();
+  } else if (data.type === 'download' && data.blob instanceof Blob) {
+    // Se confirma al instante y se avisa el resultado cuando termina (puede quedar abierta «Guardar como»).
+    const source = e.source;
+    answerApp(source, { type: 'download-ack', id: data.id });
+    saveFile(data.name, data.blob).then(status => answerApp(source, { type: 'download-result', id: data.id, status }));
+  } else if (data.type === 'detach') {
+    detach(app.id);
+  } else if (data.type === 'pip-open') {
+    openMini(app, data.width, data.height);
+  } else if (data.type === 'pip-close') {
+    closeMini(app.id);
+  } else if (data.type === 'pip-paint') {
+    paintMini(app.id, data);
+  }
+});
+
+/* ---------- Eventos y arranque ---------- */
+
+function setCollapsed(value) {
+  document.body.classList.toggle('collapsed', value);
+  const label = value ? 'Expandir el menú' : 'Contraer el menú';
+  $('btnCollapse').setAttribute('aria-label', label);
+  $('btnCollapse').title = label;
+  $('btnCollapse').setAttribute('aria-expanded', String(!value));
+  save('collapsed', value ? '1' : '0');
+}
+
+$('btnCollapse').addEventListener('click', () => setCollapsed(!document.body.classList.contains('collapsed')));
+$('btnDetach').addEventListener('click', () => detach(current));
+$('btnBring').addEventListener('click', () => bringBack(current));
+window.addEventListener('hashchange', () => show(location.hash.slice(1)));
+
+buildMenu();
+setCollapsed(load('collapsed') === '1');
+
+const requested = location.hash.slice(1);
+const start = appById(requested) ? requested : appById(load('app')) ? load('app') : APPS[0].id;
+if (requested !== start) location.replace(`#${start}`);
+show(start);
+for (const app of APPS) if (app.keepAlive) ensureFrame(app);
+</script>
+</body>
+</html>
