@@ -139,6 +139,7 @@ Mi día te recuerda hacer una copia si llevas más de 30 días sin una.
 `notas.html` organiza tus apuntes en cuadernos y páginas:
 
 - **Cuadernos:** puedes crearlos, renombrarlos y eliminarlos.
+- **Antes de eliminar:** al eliminar un cuaderno o una página aparece una ventana de confirmación. Te dice qué se borra con él (sus páginas o sus imágenes) y cuántas páginas lo enlazan, porque esos enlaces quedarán rotos. Cancelar es la opción marcada, y `Esc` o un clic fuera de la ventana también cancelan. Un cuaderno eliminado no se puede recuperar. Una página sí: el aviso que aparece después ofrece **Deshacer**.
 - **Reordenar:** con mouse, arrastra un cuaderno o una página directamente. En táctil, mantenlo pulsado un momento y arrástralo, porque deslizar sin más desplaza la lista. Con el teclado, usa `Alt` + `↑` o `↓`. Mientras haya una búsqueda activa, las páginas no se pueden mover.
 - **Páginas:** tienen título, color y buscador por cuaderno. Se guardan solas mientras escribes.
 - **Formato:** una barra fija en la parte superior de la página ofrece negrita, cursiva, subrayado, estilos, color, resaltado, listas y quitar formato.

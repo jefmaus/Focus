@@ -518,6 +518,45 @@ body.nb-sorting, body.nb-sorting * { cursor: grabbing !important; }
   border-radius: 8px;
 }
 .toast button { background: none; border: 0; color: inherit; font-weight: 700; text-decoration: underline; min-height: 32px; }
+/* Confirmación: una tarjeta centrada con el fondo atenuado. */
+.nb-confirm {
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 18px 50px rgb(0 0 0 / .3);
+}
+.nb-confirm::backdrop { background: rgb(0 0 0 / .45); }
+.nb-confirm[open] { animation: nb-confirm-in .16s ease-out; }
+@keyframes nb-confirm-in { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+@media (prefers-reduced-motion: reduce) { .nb-confirm[open] { animation: none; } }
+.nb-confirm form { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; padding: 22px 22px 18px; }
+.nb-confirm-icon {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  color: var(--over);
+  background: var(--over-soft);
+  border-radius: 50%;
+}
+.nb-confirm-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.nb-confirm h2 { margin: 2px 0 0; font-size: 1.0625rem; font-weight: 700; overflow-wrap: anywhere; }
+.nb-confirm p { margin: 0; color: var(--muted); font-size: .9375rem; line-height: 1.45; overflow-wrap: anywhere; }
+.nb-confirm p b { color: var(--text); font-weight: 600; }
+.nb-confirm-list { grid-column: 2; margin: 4px 0 0; padding-left: 18px; color: var(--muted); font-size: .875rem; line-height: 1.45; }
+.nb-confirm-list:empty { display: none; }
+.nb-confirm-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.btn.destroy { background: var(--over); border-color: var(--over); color: var(--surface); font-weight: 600; }
+.btn.destroy:hover { background: var(--over); filter: brightness(1.08); }
+@media (max-width: 480px) {
+  .nb-confirm-actions { flex-direction: column-reverse; }
+  .nb-confirm-actions .btn { min-height: 44px; }
+}
 .blocker { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: var(--bg); padding: 24px; text-align: center; }
 .blocker div { max-width: 440px; }
 .blocker h1 { font-size: 1.5rem; margin: 0 0 8px; line-height: 1.2; }
@@ -675,6 +714,21 @@ body.nb-sorting, body.nb-sorting * { cursor: grabbing !important; }
   </section>
 </main>
 
+<dialog class="nb-confirm" id="confirmDialog" aria-labelledby="confirmTitle" aria-describedby="confirmText">
+  <form method="dialog">
+    <span class="nb-confirm-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
+    </span>
+    <h2 id="confirmTitle"></h2>
+    <p id="confirmText"></p>
+    <ul class="nb-confirm-list" id="confirmList"></ul>
+    <div class="nb-confirm-actions">
+      <button class="btn" value="cancel" id="confirmCancel">Cancelar</button>
+      <button class="btn destroy" value="ok" id="confirmOk">Eliminar</button>
+    </div>
+  </form>
+</dialog>
+
 <div class="toast" id="toast" role="status" hidden>
   <span id="toastText"></span>
   <button id="toastAction" hidden></button>
@@ -727,6 +781,30 @@ function fmtWhen(ts) {
 }
 
 let toastTimer = null;
+// Pregunta antes de algo que borra. Devuelve una promesa: true si se confirma.
+// `text` admite un nombre resaltado: se pasa como [antes, nombre, después] para no armar HTML con él.
+function confirmDelete({ title, text, details = [], ok = 'Eliminar' }) {
+  const dialog = $('confirmDialog');
+  if (dialog.open) dialog.close('cancel');
+  $('confirmTitle').textContent = title;
+  const [before, name, after] = Array.isArray(text) ? text : [text, '', ''];
+  $('confirmText').replaceChildren(before, name ? h('b', { text: name }) : '', after || '');
+  $('confirmList').replaceChildren(...details.map(d => h('li', { text: d })));
+  $('confirmOk').textContent = ok;
+  dialog.returnValue = '';
+  dialog.showModal();
+  // Lo seguro a mano: Enter o un toque rápido no borran nada sin querer.
+  $('confirmCancel').focus();
+  return new Promise(resolve => {
+    dialog.addEventListener('close', () => resolve(dialog.returnValue === 'ok'), { once: true });
+  });
+}
+
+// Un clic en el fondo, fuera de la tarjeta, es cancelar.
+$('confirmDialog').addEventListener('click', e => {
+  if (e.target === e.currentTarget) e.currentTarget.close('cancel');
+});
+
 function toast(text, actionLabel, action) {
   $('toastText').textContent = text;
   const btn = $('toastAction');
@@ -1039,11 +1117,23 @@ function renameBook(book, name) {
   renderPages();
 }
 
-function deleteBook(book) {
+async function deleteBook(book) {
   flush();
   const owned = bookPages(book.id);
-  const detail = owned.length === 1 ? ' y su página' : owned.length ? ` y sus ${owned.length} páginas` : '';
-  if (!confirm(`¿Eliminar el cuaderno "${book.name}"${detail}? No se puede deshacer.`)) return;
+  const ownedIds = new Set(owned.map(p => p.id));
+  const outside = [...pages.values()].filter(p => !ownedIds.has(p.id) && owned.some(o => linksTo(p, o.id))).length;
+  const details = [
+    owned.length === 1 ? 'Se borra también su única página.' : owned.length ? `Se borran también sus ${owned.length} páginas.` : 'El cuaderno está vacío.',
+    ...(outside ? [`${outside === 1 ? '1 página de otro cuaderno enlaza' : `${outside} páginas de otros cuadernos enlazan`} a estas páginas: esos enlaces quedarán rotos.`] : []),
+  ];
+  const yes = await confirmDelete({
+    title: '¿Eliminar este cuaderno?',
+    text: ['Vas a eliminar el cuaderno ', book.name || 'Sin nombre', '. No se puede deshacer.'],
+    details,
+    ok: 'Eliminar cuaderno',
+  });
+  if (!yes || !books.has(book.id)) return;
+  owned.splice(0, owned.length, ...bookPages(book.id));
   books.delete(book.id);
   owned.forEach(p => pages.delete(p.id));
   writeTx(['notebooks', 'pages'], s => {
@@ -1137,9 +1227,23 @@ function showPage(id) {
   if (card) card.scrollIntoView({ block: 'nearest' });
 }
 
-function deletePage() {
+async function deletePage() {
+  const target = currentPage();
+  if (!target) return;
+  flush();
+  const linkers = [...pages.values()].filter(p => p.id !== target.id && linksTo(p, target.id)).length;
+  const images = target.images.length;
+  const yes = await confirmDelete({
+    title: '¿Eliminar esta página?',
+    text: ['Vas a eliminar ', pageName(target), '. Justo después podrás deshacerlo desde el aviso de abajo.'],
+    details: [
+      ...(images ? [images === 1 ? 'Se borra también su imagen.' : `Se borran también sus ${images} imágenes.`] : []),
+      ...(linkers ? [`${linkers === 1 ? '1 página la enlaza' : `${linkers} páginas la enlazan`}: esos enlaces quedarán rotos.`] : []),
+    ],
+    ok: 'Eliminar página',
+  });
   const page = currentPage();
-  if (!page) return;
+  if (!yes || page !== target) return;
   flush();
   const list = bookPages(page.notebookId);
   const index = list.findIndex(p => p.id === page.id);
@@ -2470,13 +2574,17 @@ $('btnTrail').addEventListener('click', () => {
   if (id) goToPage(id, false);
 });
 
+// Si la página `p` enlaza a la página `id`, desde su texto o desde una imagen.
+function linksTo(p, id) {
+  return (p.mode === 'text' && p.html.includes(`data-page="${id}"`)) || p.images.some(i => i.link && i.link.page === id);
+}
+
 // Las demás páginas solo cambian cuando las editas, así que basta con calcularlo al abrir esta.
 function renderBacklinks() {
   const page = currentPage();
   const box = $('backlinks');
-  const mark = page && `data-page="${page.id}"`;
   const from = page ? [...pages.values()]
-    .filter(p => p.id !== page.id && ((p.mode === 'text' && p.html.includes(mark)) || p.images.some(i => i.link && i.link.page === page.id)))
+    .filter(p => p.id !== page.id && linksTo(p, page.id))
     .sort((a, b) => b.updatedAt - a.updatedAt) : [];
   box.hidden = !from.length;
   if (!from.length) { box.replaceChildren(); return; }
