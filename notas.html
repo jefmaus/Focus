@@ -24,6 +24,8 @@
   --tag-yellow: #d6ad3a;
   --tag-pink: #d67f9f;
   --selection: #c8c8c8;
+  --page-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.6' stroke-linejoin='round'%3E%3Cpath d='M3.5 1.5h5.5l3.5 3.5v9.5h-9z'/%3E%3Cpath d='M9 1.5V5h3.5M5.5 8.5h5M5.5 11.5h5'/%3E%3C/svg%3E");
+  --mark-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 13'%3E%3Cpath d='M0 0h10v13L5 9.5 0 13z' fill='black'/%3E%3C/svg%3E");
   /* La "I" del sistema invierte el fondo y puede perderse; esta lleva borde y se ve sobre cualquier color. */
   --text-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32' fill='none' stroke-linecap='round'%3E%3Cpath stroke='%23fff' stroke-width='5' d='M11.5 6.5H14c1 0 2 1 2 2v15c0 1-1 2-2 2h-2.5M20.5 6.5H18c-1 0-2 1-2 2v15c0 1 1 2 2 2h2.5'/%3E%3Cpath stroke='%23111' stroke-width='2' d='M11.5 6.5H14c1 0 2 1 2 2v15c0 1-1 2-2 2h-2.5M20.5 6.5H18c-1 0-2 1-2 2v15c0 1 1 2 2 2h2.5'/%3E%3C/svg%3E") 16 16, text;
 }
@@ -86,6 +88,7 @@ button { cursor: pointer; }
 .btn.quiet:hover { color: var(--text); }
 .btn.quiet.danger:hover { color: var(--over); background: var(--over-soft); }
 .btn.small { padding: 4px 10px; min-height: 34px; font-size: .875rem; }
+.btn:disabled, .btn:disabled:hover { opacity: .45; cursor: default; filter: none; }
 .field {
   background: var(--bg);
   border: 1px solid var(--line);
@@ -228,6 +231,53 @@ body.nb-sorting, body.nb-sorting * { cursor: grabbing !important; }
 .nb-body h2:first-child, .nb-body h3:first-child { margin-top: 0; }
 .nb-body ul, .nb-body ol { margin: 0 0 .5em; padding-left: 1.6em; }
 .nb-body::selection, .nb-body *::selection, .nb-title::selection { background: var(--selection); }
+/* Enlace a otra página: una pieza que se borra entera y que con un clic te lleva. */
+.nb-body a[data-page] {
+  color: var(--accent);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 3px;
+  border-radius: 4px;
+  padding: 0 2px;
+  cursor: pointer;
+}
+.nb-body a[data-page]::before {
+  content: "";
+  display: inline-block;
+  width: .85em;
+  height: .85em;
+  margin-right: .2em;
+  vertical-align: -.08em;
+  background: currentColor;
+  -webkit-mask: var(--page-icon) center / contain no-repeat;
+  mask: var(--page-icon) center / contain no-repeat;
+}
+.nb-body a[data-page]:hover { background: var(--accent-soft); }
+.nb-body a.nb-link-broken { color: var(--muted); text-decoration-line: line-through; }
+.nb-body a.nb-link-broken:hover { background: var(--surface-2); }
+.nb-body a.nb-link-nomark { text-decoration-style: dashed; }
+/* Marcador: una banderita en el margen izquierdo del bloque. */
+.nb-body [data-mark-id] { position: relative; }
+.nb-body [data-mark-id]::before {
+  content: "";
+  position: absolute;
+  left: calc(-1 * clamp(16px, 3vw, 32px) + 3px);
+  top: .3em;
+  width: 10px;
+  height: 13px;
+  background: var(--accent);
+  opacity: .8;
+  pointer-events: none;
+  -webkit-mask: var(--mark-icon) center / contain no-repeat;
+  mask: var(--mark-icon) center / contain no-repeat;
+}
+.nb-body li[data-mark-id]::before, .nb-body li [data-mark-id]::before { left: calc(-1.6em - clamp(16px, 3vw, 32px) + 3px); }
+@keyframes nb-mark-flash {
+  0%, 35% { background-color: var(--accent-soft); box-shadow: 0 0 0 6px var(--accent-soft); }
+  100% { background-color: transparent; box-shadow: 0 0 0 6px transparent; }
+}
+.nb-body .nb-mark-flash { border-radius: 4px; animation: nb-mark-flash 1.8s ease-out; }
 /* Encima de la hoja: las imágenes no empujan el texto y se colocan en cualquier punto. */
 .nb-img-layer { position: absolute; top: 0; left: 0; right: 0; height: 0; isolation: isolate; }
 .nb-img {
@@ -334,6 +384,75 @@ body.nb-sorting, body.nb-sorting * { cursor: grabbing !important; }
 .nb-menu button:hover { background: var(--surface-2); }
 .nb-swatch { width: 22px; text-align: center; font-weight: 700; border-radius: 4px; }
 
+.nb-picker {
+  position: fixed;
+  z-index: 12;
+  width: min(340px, calc(100vw - 16px));
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / .18);
+}
+.nb-picker .field { min-height: 38px; }
+.nb-picker-list { margin: 0; padding: 0; list-style: none; max-height: 280px; overflow-y: auto; }
+.nb-picker-list [role="option"] { display: flex; flex-direction: column; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.nb-picker-list [role="option"]:hover { background: var(--surface-2); }
+.nb-picker-list [role="option"][aria-selected="true"] { background: var(--accent-soft); }
+.nb-picker-list b { font-weight: 600; overflow-wrap: anywhere; }
+.nb-picker-list small { color: var(--muted); font-size: .75rem; overflow-wrap: anywhere; }
+.nb-picker-empty { color: var(--muted); padding: 6px 8px; }
+.nb-picker-head { padding: 4px 8px 2px; color: var(--muted); font-size: .8125rem; overflow-wrap: anywhere; }
+.nb-picker-head b { color: var(--text); font-weight: 600; }
+.nb-mark-editor { width: min(300px, calc(100vw - 16px)); padding: 8px; }
+.nb-mark-editor label { color: var(--muted); font-size: .8125rem; }
+.nb-mark-actions { display: flex; justify-content: flex-end; gap: 6px; }
+/* Burbuja de un enlace: adónde lleva, Abrir y Quitar enlace. */
+.nb-link-bubble {
+  position: fixed;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: min(420px, calc(100vw - 16px));
+  padding: 4px 4px 4px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / .18);
+}
+.nb-link-dest { flex: 1 1 auto; min-width: 0; margin-right: 4px; overflow: hidden; color: var(--muted); font-size: .8125rem; text-overflow: ellipsis; white-space: nowrap; }
+.nb-link-bubble .nb-tool { flex: none; font-weight: 600; }
+.nb-link-bubble .nb-tool:disabled { opacity: .45; cursor: default; background: none; }
+.nb-mark-error { color: var(--over); font-size: .8125rem; overflow-wrap: anywhere; }
+.nb-mark-editor .field[aria-invalid="true"] { border-color: var(--over); }
+
+.nb-trail { display: block; max-width: 100%; margin: 0 0 4px -10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.nb-backlinks { flex: none; margin: 8px clamp(16px, 3vw, 32px) 0; padding: 12px 0 20px; border-top: 1px solid var(--line); }
+.nb-backlinks h2 { margin: 0 0 8px; font-size: .75rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.nb-backlinks ul { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.nb-backlinks li { max-width: 100%; }
+.nb-backlinks button {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 6px;
+  max-width: 100%;
+  min-height: 34px;
+  padding: 5px 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  text-align: left;
+}
+.nb-backlinks button:hover { background: var(--accent-soft); border-color: var(--accent-soft); }
+.nb-backlinks b { font-weight: 600; overflow-wrap: anywhere; }
+.nb-backlinks small { color: var(--muted); font-size: .75rem; }
+
 .nb-foot { border-top: 1px solid var(--line); padding: 8px clamp(16px, 3vw, 32px); }
 #btnCheck { display: inline-flex; align-items: center; gap: 6px; }
 #btnCheck svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
@@ -391,6 +510,9 @@ body.nb-sorting, body.nb-sorting * { cursor: grabbing !important; }
   .nb-layout[data-pane="editor"] > :not(.nb-editor) { display: none; }
   .nb-back { display: block; align-self: flex-start; margin: 6px 0 0 4px; }
   .nb-sheet-head .nb-back { margin: 0 0 6px -10px; }
+  .nb-sheet-head .nb-back, .nb-sheet-head .nb-trail { display: inline-block; vertical-align: top; }
+  .nb-sheet-head .nb-back + .nb-trail { margin-left: 0; }
+  .nb-picker-list [role="option"] { min-height: 44px; justify-content: center; }
   .nb-book-actions { display: flex; }
   .nb-icon { width: 36px; height: 40px; }
   .nb-dot { width: 26px; height: 26px; }
@@ -434,6 +556,7 @@ body.nb-sorting, body.nb-sorting * { cursor: grabbing !important; }
     <div class="nb-sheet" id="sheet" hidden>
       <div class="nb-sheet-head" id="sheetHead">
         <button class="btn quiet small nb-back" id="backToPages">← Páginas</button>
+        <button class="btn quiet small nb-trail" id="btnTrail" hidden></button>
         <input class="nb-title" id="pageTitle" placeholder="Sin título" aria-label="Título de la página" maxlength="200">
         <div class="nb-sheet-meta">
           <span class="nb-date" id="pageDate"></span>
@@ -468,6 +591,13 @@ body.nb-sorting, body.nb-sorting * { cursor: grabbing !important; }
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M7 4h7M7 8h7M7 12h7M2 3l1.2-.8V6"/><path d="M2 10.2c.5-.8 2-.6 2 .3 0 .8-2 1.3-2 2.5h2.2"/></svg>
         </button>
         <span class="nb-sep"></span>
+        <button class="nb-tool" id="btnLink" aria-label="Enlazar página" title="Enlazar página (también con @)" aria-haspopup="listbox" aria-expanded="false">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 9.5l3-3M7.2 4.3l.9-.9a2.8 2.8 0 0 1 4 4l-.9.9M8.8 11.7l-.9.9a2.8 2.8 0 0 1-4-4l.9-.9"/></svg>
+        </button>
+        <button class="nb-tool" id="btnMark" aria-label="Marcador" title="Marcador: nombra este párrafo para enlazarlo con @" aria-pressed="false" aria-haspopup="dialog">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 2.5h7v11L8 11l-3.5 2.5z" stroke-linejoin="round"/></svg>
+        </button>
+        <span class="nb-sep"></span>
         <button class="nb-tool" id="btnClear" aria-label="Quitar formato" title="Quitar formato">
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 3h9M8.5 3 6.5 13M3 13 13 3"/></svg>
         </button>
@@ -476,6 +606,7 @@ body.nb-sorting, body.nb-sorting * { cursor: grabbing !important; }
       <div class="nb-scroller" id="pageScroller">
         <div class="nb-body" id="pageBody" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Contenido de la página" data-placeholder="Escribe aquí..."></div>
         <div class="nb-checklist" id="checkView" hidden></div>
+        <section class="nb-backlinks" id="backlinks" aria-label="Enlazado desde" hidden></section>
         <div class="nb-img-layer" id="imgLayer"></div>
       </div>
 
@@ -486,6 +617,28 @@ body.nb-sorting, body.nb-sorting * { cursor: grabbing !important; }
         <button class="nb-tool" id="imgDelete" aria-label="Eliminar imagen" title="Eliminar (Supr)">
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.7 8.5h5.6l.7-8.5"/></svg>
         </button>
+      </div>
+
+      <div class="nb-picker" id="linkPicker" hidden>
+        <input class="field" id="linkSearch" type="text" placeholder="Buscar página..." aria-label="Buscar página para enlazar" role="combobox" aria-controls="linkOptions" aria-expanded="true" aria-autocomplete="list" autocomplete="off" maxlength="200">
+        <div class="nb-picker-head" id="linkHead" hidden></div>
+        <ul class="nb-picker-list" id="linkOptions" role="listbox" aria-label="Páginas"></ul>
+      </div>
+
+      <div class="nb-link-bubble" id="linkBubble" role="toolbar" aria-label="Enlace" hidden>
+        <span class="nb-link-dest" id="linkDest"></span>
+        <button class="nb-tool" id="linkOpen">Abrir</button>
+        <button class="nb-tool" id="linkUnlink" title="Quita el enlace y deja el texto">Quitar enlace</button>
+      </div>
+
+      <div class="nb-picker nb-mark-editor" id="markEditor" role="dialog" aria-label="Marcador" hidden>
+        <label for="markName">Nombre del marcador</label>
+        <input class="field" id="markName" type="text" maxlength="80" autocomplete="off" aria-describedby="markError">
+        <small class="nb-mark-error" id="markError" role="alert" hidden></small>
+        <div class="nb-mark-actions">
+          <button class="btn quiet small danger" id="markRemove">Quitar</button>
+          <button class="btn primary small" id="markSave">Guardar</button>
+        </div>
       </div>
 
       <div class="nb-foot">
@@ -581,7 +734,12 @@ const cssColor = value => {
 };
 const ALLOWED_TEXT_COLORS = new Set(TEXT_COLORS.map(c => c[0]).filter(c => c !== DEFAULT_TEXT_COLOR));
 const ALLOWED_HIGHLIGHTS = new Set(HIGHLIGHTS.map(c => cssColor(c[0])));
-const NOTE_TAGS = new Set(['P', 'DIV', 'BR', 'B', 'STRONG', 'I', 'EM', 'U', 'H2', 'H3', 'UL', 'OL', 'LI', 'SPAN', 'FONT']);
+const NOTE_TAGS = new Set(['P', 'DIV', 'BR', 'B', 'STRONG', 'I', 'EM', 'U', 'H2', 'H3', 'UL', 'OL', 'LI', 'SPAN', 'FONT', 'A']);
+const PAGE_ID = /^[\w-]{1,100}$/;
+// Bloques que pueden llevar un marcador: el id y el nombre van en el propio bloque.
+const MARK_TAGS = new Set(['P', 'DIV', 'H2', 'H3', 'LI']);
+const MARK_NAME_MAX = 80;
+const cleanMarkName = name => String(name || '').replace(/\s+/g, ' ').trim().slice(0, MARK_NAME_MAX);
 const TAG_MAP = {
   H1: 'H2', H4: 'H3', H5: 'H3', H6: 'H3',
   BLOCKQUOTE: 'DIV', PRE: 'DIV', SECTION: 'DIV', ARTICLE: 'DIV', TR: 'DIV',
@@ -598,7 +756,8 @@ const validSide = value => {
   return Number.isInteger(side) && side > 0 && side <= 32767 ? side : null;
 };
 
-function cleanChildren(source, target) {
+// `marks`: si se conservan los marcadores de los bloques. Al pegar no, para no duplicarlos.
+function cleanChildren(source, target, marks = true) {
   for (const node of source.childNodes) {
     if (node.nodeType === Node.TEXT_NODE) {
       target.append(target.ownerDocument.createTextNode(node.data));
@@ -611,10 +770,32 @@ function cleanChildren(source, target) {
     // Google Docs envuelve todo lo pegado en un <b style="font-weight:normal">.
     const fakeBold = mapped === 'B' && node.style && node.style.fontWeight === 'normal';
     if (!NOTE_TAGS.has(mapped) || fakeBold) {
-      cleanChildren(node, target);
+      cleanChildren(node, target, marks);
+      continue;
+    }
+    if (mapped === 'A') {
+      // Solo enlaces a otra página de Notas, por su id: sin href, nunca llevan a internet.
+      const id = node.getAttribute('data-page') || '';
+      const mark = node.getAttribute('data-mark') || '';
+      const text = node.textContent.replace(/\s+/g, ' ').trim();
+      if (!PAGE_ID.test(id)) {
+        cleanChildren(node, target, marks);
+      } else if (text) {
+        const link = target.ownerDocument.createElement('a');
+        link.setAttribute('data-page', id);
+        if (PAGE_ID.test(mark)) link.setAttribute('data-mark', mark);
+        if (node.hasAttribute('data-own')) link.setAttribute('data-own', '');
+        link.textContent = text;
+        target.append(link);
+      }
       continue;
     }
     const el = target.ownerDocument.createElement(mapped);
+    const markId = marks && MARK_TAGS.has(mapped) ? node.getAttribute('data-mark-id') || '' : '';
+    if (PAGE_ID.test(markId)) {
+      el.setAttribute('data-mark-id', markId);
+      el.setAttribute('data-mark-name', cleanMarkName(node.getAttribute('data-mark-name')) || 'Marcador');
+    }
     if (mapped === 'FONT') {
       const color = (node.getAttribute('color') || '').toLowerCase();
       if (ALLOWED_TEXT_COLORS.has(color)) el.setAttribute('color', color);
@@ -622,21 +803,41 @@ function cleanChildren(source, target) {
       const bg = cssColor(node.style.backgroundColor);
       if (ALLOWED_HIGHLIGHTS.has(bg)) el.setAttribute('style', `background-color: ${bg}`);
     }
-    cleanChildren(node, el);
+    cleanChildren(node, el, marks);
     if ((mapped === 'FONT' || mapped === 'SPAN') && !el.hasAttributes()) target.append(...el.childNodes);
     else target.append(el);
   }
 }
 
+// Chrome copia los atributos al partir un párrafo con Enter: el marcador se queda en el primer bloque con texto.
+function dedupeMarks(root) {
+  const groups = new Map();
+  for (const el of root.querySelectorAll('[data-mark-id]')) {
+    const id = el.getAttribute('data-mark-id');
+    if (!groups.has(id)) groups.set(id, []);
+    groups.get(id).push(el);
+  }
+  for (const list of groups.values()) {
+    if (list.length < 2) continue;
+    const keep = list.find(el => el.textContent.trim()) || list[0];
+    for (const el of list) {
+      if (el === keep) continue;
+      el.removeAttribute('data-mark-id');
+      el.removeAttribute('data-mark-name');
+    }
+  }
+}
+
 // Solo sale lo que está en la lista permitida; todo lo demás se descarta o se reduce a su texto.
-function sanitizeNote(html) {
+function sanitizeNote(html, { marks = true } = {}) {
   const source = new DOMParser().parseFromString(String(html || ''), 'text/html');
   const out = document.implementation.createHTMLDocument('');
-  cleanChildren(source.body, out.body);
+  if (marks) dedupeMarks(source.body);
+  cleanChildren(source.body, out.body, marks);
   return out.body.innerHTML;
 }
 
-const INLINE_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'SPAN', 'FONT']);
+const INLINE_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'SPAN', 'FONT', 'A']);
 
 function noteText(html) {
   const parts = [];
@@ -713,7 +914,8 @@ const saveUi = () => writeTx(['meta'], s => s('meta').put({ key: 'ui', bookId: u
 
 const books = new Map();
 const pages = new Map();
-const ui = { bookId: null, pageId: null, query: '', editingBook: null };
+// `trail`: de dónde venías al seguir enlaces, para el botón de volver.
+const ui = { bookId: null, pageId: null, query: '', editingBook: null, trail: [] };
 
 const body = $('pageBody');
 const bar = $('bar');
@@ -743,6 +945,7 @@ function flush() {
   const page = currentPage();
   if (!page) return;
   page.title = $('pageTitle').value;
+  dedupeMarks(body);
   page.html = sanitizeNote(body.innerHTML);
   page.text = pageText(page);
   page.updatedAt = Date.now();
@@ -822,7 +1025,10 @@ function deleteBook(book) {
   });
   ensureBook();
   if (ui.bookId === book.id) selectBook(sortedBooks()[0].id);
-  else renderBooks();
+  else {
+    renderBooks();
+    refreshLinks();
+  }
 }
 
 function ensureBook() {
@@ -834,6 +1040,7 @@ function ensureBook() {
 
 function selectBook(id) {
   flush();
+  ui.trail = [];
   ui.bookId = id;
   ui.query = '';
   $('pageSearch').value = '';
@@ -886,13 +1093,21 @@ function addPage() {
   $('pageTitle').focus();
 }
 
+// Elegir desde la lista empieza un recorrido nuevo: el botón de volver es para los enlaces.
 function selectPage(id) {
   flush();
+  ui.trail = [];
+  showPage(id);
+}
+
+function showPage(id) {
   ui.pageId = id;
   saveUi();
   renderPages();
   renderEditor();
   setPane('editor');
+  const card = $('pageList').querySelector('[aria-current="true"]');
+  if (card) card.scrollIntoView({ block: 'nearest' });
 }
 
 function deletePage() {
@@ -915,7 +1130,7 @@ function deletePage() {
     pages.set(page.id, page);
     putPage(page);
     if (ui.bookId === page.notebookId) selectPage(page.id);
-    else renderPages();
+    else refreshLinks();
   });
 }
 
@@ -1129,11 +1344,17 @@ function renderEditor() {
   $('editorEmpty').hidden = !!page;
   $('sheet').hidden = !page;
   closeMenus();
+  closePicker();
+  closeMarkEditor(false);
+  hideBubble();
   releaseImageUrls();
   renderImages();
+  renderBacklinks();
+  paintTrail();
   if (!page) { bar.hidden = true; return; }
   $('pageTitle').value = page.title;
   body.innerHTML = sanitizeNote(page.html);
+  paintLinks();
   scroller.scrollTop = 0;
   paintEmptyBody();
   paintDate();
@@ -1194,6 +1415,8 @@ function updateBar() {
   bar.hidden = !page || page.mode === 'check';
   if (bar.hidden) {
     closeMenus();
+    closePicker();
+    closeMarkEditor(false);
     return;
   }
   if (selectionRange()) {
@@ -1202,6 +1425,7 @@ function updateBar() {
     for (const btn of bar.querySelectorAll('[data-cmd]')) btn.setAttribute('aria-pressed', 'false');
     $('styleLabel').textContent = 'Normal';
   }
+  paintMarkButton();
 }
 
 function exec(command, value) {
@@ -1349,7 +1573,7 @@ function toText() {
   const page = currentPage();
   const texts = checkTexts(page);
   if (JSON.stringify(texts) !== JSON.stringify(htmlLines(page.html))) {
-    if (/<(b|strong|i|em|u|h2|h3|ul|ol|span|font)\b/i.test(page.html)) toast('La lista cambió: el texto vuelve sin formato');
+    if (/<(b|strong|i|em|u|h2|h3|ul|ol|span|font|a)\b/i.test(page.html)) toast('La lista cambió: el texto vuelve sin formato ni enlaces');
     page.html = texts.map(text => h('p', { text }).outerHTML).join('');
   }
   body.innerHTML = sanitizeNote(page.html);
@@ -1977,6 +2201,757 @@ function copySelectedImage(e, cut) {
 document.addEventListener('copy', e => copySelectedImage(e, false));
 document.addEventListener('cut', e => copySelectedImage(e, true));
 
+/* ---------- Enlaces entre páginas ---------- */
+
+const linkPicker = $('linkPicker');
+const linkSearch = $('linkSearch');
+const linkOptions = $('linkOptions');
+const linkHead = $('linkHead');
+const btnLink = $('btnLink');
+const PICKER_RECENT = 8;
+const PICKER_LIMIT = 20;
+const PICKER_MAX_QUERY = 60;
+const TRAIL_MAX = 50;
+const BLOCK_TAGS = new Set(['P', 'DIV', 'LI', 'H2', 'H3']);
+
+const pageName = page => page.title.trim() || 'Sin título';
+const bookName = page => (books.get(page.notebookId) || { name: '' }).name;
+const pagePlace = page => `${bookName(page)} › ${pageName(page)}`;
+
+/* Marcadores: el id y el nombre viven en el propio bloque, así que no hay otra lista que mantener. */
+
+const markCache = new Map();  // id de página → { html, marks }, para no releer páginas que no cambiaron
+
+function readMarks(root) {
+  const seen = new Set();
+  const marks = [];
+  for (const el of root.querySelectorAll('[data-mark-id]')) {
+    const id = el.getAttribute('data-mark-id');
+    if (seen.has(id) || !PAGE_ID.test(id)) continue;
+    seen.add(id);
+    marks.push({ id, name: el.getAttribute('data-mark-name') || 'Marcador', text: el.textContent.replace(/\s+/g, ' ').trim().slice(0, 80) });
+  }
+  return marks;
+}
+
+// La página abierta se lee del editor, tal como está ahora; las demás, de lo guardado.
+function marksOf(page) {
+  if (page.mode !== 'text') return [];
+  if (page === currentPage()) return readMarks(body);
+  const hit = markCache.get(page.id);
+  if (hit && hit.html === page.html) return hit.marks;
+  const marks = page.html.includes('data-mark-id') ? readMarks(new DOMParser().parseFromString(page.html, 'text/html').body) : [];
+  markCache.set(page.id, { html: page.html, marks });
+  return marks;
+}
+
+// Dentro de la misma página basta el nombre del marcador; desde otra, "Página › Marcador".
+const linkLabel = (page, mark) => !mark ? pageName(page) : page.id === ui.pageId ? mark.name : `${pageName(page)} › ${mark.name}`;
+
+// El enlace guarda solo ids: el texto que se ve es siempre el actual, salvo si el texto es propio.
+function paintLinks() {
+  for (const link of body.querySelectorAll('a[data-page]')) {
+    const target = pages.get(link.dataset.page);
+    const markId = link.dataset.mark;
+    const mark = target && markId ? marksOf(target).find(m => m.id === markId) : null;
+    const lostMark = !!(target && markId && !mark);
+    link.contentEditable = 'false';
+    link.classList.toggle('nb-link-broken', !target);
+    link.classList.toggle('nb-link-nomark', lostMark);
+    // Adónde lleva, para la burbuja. No va en `title`: su tooltip taparía la burbuja. Al guardar se descarta.
+    link.removeAttribute('title');
+    link.dataset.dest = !target ? 'Esta página ya no existe'
+      : mark ? `${pagePlace(target)} › ${mark.name}`
+      : lostMark ? `${pagePlace(target)} (el marcador ya no existe: se abrirá la página)`
+      : pagePlace(target);
+    // Sin su marcador, el enlace lleva a la página: muestra su título. Si el marcador vuelve, vuelve su nombre.
+    if (target && !link.hasAttribute('data-own')) {
+      const label = linkLabel(target, mark);
+      if (link.textContent !== label) link.textContent = label;
+    }
+  }
+}
+
+function revealMark(markId) {
+  const page = currentPage();
+  const block = [...body.querySelectorAll('[data-mark-id]')].find(el => el.getAttribute('data-mark-id') === markId);
+  if (!block || page.mode !== 'text') {
+    toast(page.mode === 'text' ? 'Ese marcador ya no existe: se abrió la página' : 'La página está en modo checklist: el marcador no se ve');
+    return;
+  }
+  // Si el editor tiene el foco, el cursor va al marcador: lo que escribas cae donde llegaste.
+  if (document.activeElement === body) {
+    const sel = getSelection();
+    sel.removeAllRanges();
+    const range = document.createRange();
+    range.setStart(block, 0);
+    sel.addRange(range);
+  }
+  block.scrollIntoView({ block: 'center' });
+  block.classList.remove('nb-mark-flash');
+  void block.offsetWidth;  // reinicia la animación si ya estaba en curso
+  block.classList.add('nb-mark-flash');
+  block.addEventListener('animationend', () => block.classList.remove('nb-mark-flash'), { once: true });
+}
+
+// Otra página apareció o desapareció sin cambiar la abierta: sus enlaces y backlinks se repintan.
+function refreshLinks() {
+  renderPages();
+  paintLinks();
+  renderBacklinks();
+  paintTrail();
+}
+
+// Abre la página aunque esté en otro cuaderno. `remember` deja el botón para volver; `markId` lleva al marcador.
+function goToPage(id, remember, markId) {
+  const page = pages.get(id);
+  if (!page) { toast('Esa página ya no existe'); return; }
+  if (id === ui.pageId) {
+    if (markId) revealMark(markId);
+    else scroller.scrollTo({ top: 0 });
+    return;
+  }
+  flush();
+  if (remember && ui.pageId && ui.pageId !== id) {
+    ui.trail.push(ui.pageId);
+    if (ui.trail.length > TRAIL_MAX) ui.trail.shift();
+  }
+  ui.query = '';
+  $('pageSearch').value = '';
+  if (page.notebookId !== ui.bookId) {
+    ui.bookId = page.notebookId;
+    renderBooks();
+  }
+  showPage(id);
+  if (markId) revealMark(markId);
+}
+
+function paintTrail() {
+  const trail = ui.trail;
+  while (trail.length && (!pages.has(trail[trail.length - 1]) || trail[trail.length - 1] === ui.pageId)) trail.pop();
+  const back = pages.get(trail[trail.length - 1]);
+  const btn = $('btnTrail');
+  btn.hidden = !back;
+  if (!back) return;
+  btn.textContent = `← ${pageName(back)}`;
+  btn.title = `Volver a ${pagePlace(back)}`;
+  btn.setAttribute('aria-label', btn.title);
+}
+
+$('btnTrail').addEventListener('click', () => {
+  const id = ui.trail.pop();
+  if (id) goToPage(id, false);
+});
+
+// Las demás páginas solo cambian cuando las editas, así que basta con calcularlo al abrir esta.
+function renderBacklinks() {
+  const page = currentPage();
+  const box = $('backlinks');
+  const mark = page && `data-page="${page.id}"`;
+  const from = page ? [...pages.values()]
+    .filter(p => p.id !== page.id && p.mode === 'text' && p.html.includes(mark))
+    .sort((a, b) => b.updatedAt - a.updatedAt) : [];
+  box.hidden = !from.length;
+  if (!from.length) { box.replaceChildren(); return; }
+  box.replaceChildren(
+    h('h2', { text: 'Enlazado desde' }),
+    h('ul', {}, ...from.map(p => h('li', {},
+      h('button', { title: `Ir a ${pagePlace(p)}`, onclick: () => goToPage(p.id, true) },
+        h('b', { text: pageName(p) }),
+        h('small', { text: bookName(p) }),
+      ),
+    ))),
+  );
+}
+
+body.addEventListener('click', e => {
+  const link = e.target.closest('a[data-page]');
+  if (!link || !body.contains(link)) return;
+  e.preventDefault();
+  // En táctil no hay "pasar por encima": el toque muestra la burbuja, y Abrir lleva a la página.
+  if (lastPointer === 'touch') { showBubble(link); return; }
+  hideBubble();
+  goToPage(link.dataset.page, true, link.dataset.mark);
+});
+
+/* Buscador de páginas: con @ al escribir o con el botón de la barra. */
+
+// { mode: 'inline', node, offset } marca dónde está la @; { mode: 'button', range } guarda la selección.
+// `step`: 'pages' para elegir la página; 'marks' para elegir uno de sus marcadores (`page`).
+// Con @, en el paso de marcadores filtra lo escrito desde `from`; con el botón, el campo, que se vacía al entrar.
+let picker = null;
+let pasting = false;
+
+// Cada resultado es { page } en el primer paso y { page, mark } en el segundo (mark null: la página completa).
+function linkResults(query) {
+  const q = norm(query);
+  // La página abierta solo sirve si tiene marcadores: para enlazar a uno de ellos.
+  const all = [...pages.values()].filter(p => books.has(p.notebookId) && PAGE_ID.test(p.id) && (p.id !== ui.pageId || marksOf(p).length));
+  const recent = (a, b) => b.updatedAt - a.updatedAt;
+  if (!q) return all.sort(recent).slice(0, PICKER_RECENT).map(page => ({ page }));
+  const scored = [];
+  for (const p of all) {
+    const title = norm(pageName(p));
+    const rank = title.startsWith(q) ? 0 : title.includes(q) ? 1 : norm(`${bookName(p)} ${pageName(p)}`).includes(q) ? 2 : -1;
+    if (rank >= 0) scored.push({ rank, p });
+  }
+  return scored.sort((a, b) => a.rank - b.rank || recent(a.p, b.p)).slice(0, PICKER_LIMIT).map(s => ({ page: s.p }));
+}
+
+function markResults(page, query) {
+  const q = norm(query);
+  const marks = marksOf(page).filter(m => !q || norm(m.name).includes(q) || norm(m.text).includes(q));
+  return [{ page, mark: null }, ...marks.map(mark => ({ page, mark }))];
+}
+
+function optionContent({ page, mark }) {
+  if (picker.step === 'marks') {
+    return mark
+      ? [h('b', { text: mark.name }), h('small', { text: mark.text || 'Bloque vacío' })]
+      : [h('b', { text: 'Página completa' }), h('small', { text: 'Sin marcador: abre la página desde el inicio' })];
+  }
+  const count = marksOf(page).length;
+  const where = page.id === ui.pageId ? `${bookName(page)} · esta página` : bookName(page);
+  return [h('b', { text: pageName(page) }), h('small', { text: count ? `${where} · ${count} ${count === 1 ? 'marcador' : 'marcadores'} ›` : where })];
+}
+
+function paintPicker() {
+  const { results } = picker;
+  const marking = picker.step === 'marks';
+  linkHead.hidden = !marking;
+  if (marking) linkHead.replaceChildren(h('b', { text: pageName(picker.page) }), ' › elige un marcador (Esc para volver)');
+  linkOptions.setAttribute('aria-label', marking ? 'Marcadores' : 'Páginas');
+  linkOptions.replaceChildren(...(results.length ? results.map((entry, i) => h('li', {
+    id: `linkOption${i}`,
+    role: 'option',
+    'aria-selected': 'false',
+    onclick: () => choosePicker(i),
+    onpointermove: () => { if (picker && picker.index !== i) { picker.index = i; markOption(false); } },
+  }, ...optionContent(entry))) : [h('li', { class: 'nb-picker-empty', text: 'Sin resultados' })]));
+  markOption(true);
+}
+
+function enterMarks(page) {
+  picker.step = 'marks';
+  picker.page = page;
+  if (picker.mode === 'inline') {
+    picker.from = (inlineQuery() || '').length;
+    updateInline();
+  } else {
+    picker.pageQuery = linkSearch.value;
+    linkSearch.value = '';
+    searchPicker();
+  }
+}
+
+function leaveMarks() {
+  picker.step = 'pages';
+  picker.page = null;
+  if (picker.mode === 'inline') {
+    updateInline();
+  } else {
+    linkSearch.value = picker.pageQuery || '';
+    searchPicker();
+  }
+}
+
+function markOption(reveal) {
+  const options = linkOptions.querySelectorAll('[role="option"]');
+  options.forEach((li, i) => li.setAttribute('aria-selected', String(i === picker.index)));
+  const active = options[picker.index];
+  if (active && reveal) active.scrollIntoView({ block: 'nearest' });
+  const owner = picker.mode === 'inline' ? body : linkSearch;
+  if (active) owner.setAttribute('aria-activedescendant', active.id);
+  else owner.removeAttribute('aria-activedescendant');
+}
+
+function anchorRect() {
+  if (picker.mode === 'button') return btnLink.getBoundingClientRect();
+  const range = document.createRange();
+  range.setStart(picker.node, picker.offset);
+  range.setEnd(picker.node, picker.offset + 1);
+  return range.getBoundingClientRect();
+}
+
+// Debajo de la @ o del botón; encima si abajo no cabe. Nunca fuera de la ventana.
+function positionPicker() {
+  if (!picker) return;
+  if (picker.mode === 'inline' && !picker.node.isConnected) { closePicker(); return; }
+  const rect = anchorRect();
+  const box = linkPicker.getBoundingClientRect();
+  const gap = 6;
+  const edge = 8;
+  const below = rect.bottom + gap;
+  const above = rect.top - gap - box.height;
+  const top = below + box.height <= innerHeight - edge || above < edge ? below : above;
+  linkPicker.style.top = `${clamp(top, edge, Math.max(edge, innerHeight - box.height - edge))}px`;
+  linkPicker.style.left = `${clamp(rect.left, edge, Math.max(edge, innerWidth - box.width - edge))}px`;
+}
+
+function openPicker(state) {
+  closePicker();
+  picker = { query: null, results: [], index: 0, step: 'pages', page: null, from: 0, ...state };
+  const inline = picker.mode === 'inline';
+  linkSearch.hidden = inline;
+  linkPicker.hidden = false;
+  if (inline) {
+    body.setAttribute('aria-controls', 'linkOptions');
+    updateInline();
+    return;
+  }
+  btnLink.setAttribute('aria-expanded', 'true');
+  linkSearch.value = '';
+  searchPicker();
+  linkSearch.focus({ preventScroll: true });
+}
+
+function closePicker() {
+  if (!picker) return;
+  picker = null;
+  linkPicker.hidden = true;
+  linkHead.hidden = true;
+  linkOptions.replaceChildren();
+  body.removeAttribute('aria-activedescendant');
+  body.removeAttribute('aria-controls');
+  linkSearch.removeAttribute('aria-activedescendant');
+  btnLink.setAttribute('aria-expanded', 'false');
+}
+
+function searchPicker() {
+  picker.query = linkSearch.value;
+  picker.results = picker.step === 'marks' ? markResults(picker.page, picker.query) : linkResults(picker.query);
+  picker.index = 0;
+  paintPicker();
+  positionPicker();
+}
+
+// El carácter justo a la izquierda dentro de la misma línea; '' al empezar la línea.
+function charBefore(node, offset) {
+  if (offset > 0) return node.data[offset - 1];
+  for (let current = node; current !== body && !BLOCK_TAGS.has(current.nodeName); current = current.parentNode) {
+    for (let prev = current.previousSibling; prev; prev = prev.previousSibling) {
+      if (prev.nodeName === 'BR') return '';
+      const text = prev.textContent;
+      if (text) return text[text.length - 1];
+    }
+  }
+  return '';
+}
+
+// La @ pegada a otro carácter (un correo, por ejemplo) no abre el buscador: solo tras un blanco o al empezar la línea.
+// `typed` es lo que acaba de entrar: una tecla o, en algunos teclados táctiles, una palabra entera.
+function maybeOpenInline(typed) {
+  const sel = getSelection();
+  if (!sel.rangeCount || !sel.isCollapsed) return;
+  const { startContainer: node, startOffset: caret } = sel.getRangeAt(0);
+  if (node.nodeType !== Node.TEXT_NODE || !body.contains(node)) return;
+  const at = caret - typed.length + typed.lastIndexOf('@');
+  if (at < 0 || node.data[at] !== '@') return;
+  const before = charBefore(node, at);
+  if (before && !/\s/.test(before)) return;
+  openPicker({ mode: 'inline', node, offset: at });
+}
+
+// Lo escrito entre la @ y el cursor; null si la @ ya no está o el cursor salió de ahí.
+function inlineQuery() {
+  const { node, offset } = picker;
+  const sel = getSelection();
+  if (!node.isConnected || node.data[offset] !== '@' || !sel.rangeCount || !sel.isCollapsed) return null;
+  const range = sel.getRangeAt(0);
+  if (range.startContainer !== node || range.startOffset <= offset) return null;
+  return node.data.slice(offset + 1, range.startOffset);
+}
+
+function updateInline() {
+  const query = inlineQuery();
+  if (query === null || query.length > PICKER_MAX_QUERY) { closePicker(); return; }
+  // Borrar lo escrito antes de elegir la página vuelve al primer paso.
+  if (picker.step === 'marks' && query.length < picker.from) {
+    picker.step = 'pages';
+    picker.page = null;
+  }
+  let results;
+  if (picker.step === 'marks') {
+    results = markResults(picker.page, query.slice(picker.from));
+  } else {
+    results = linkResults(query);
+    // Si nada coincide y ya sigues con otra palabra, la @ era solo texto.
+    if (!results.length && /\s$/.test(query)) { closePicker(); return; }
+  }
+  picker.query = query;
+  picker.results = results;
+  picker.index = 0;
+  paintPicker();
+  positionPicker();
+}
+
+const blockOf = node => {
+  while (node && node !== body && !BLOCK_TAGS.has(node.nodeName)) node = node.parentNode;
+  return node;
+};
+
+function restoreSelection(range) {
+  body.focus({ preventScroll: true });
+  const sel = getSelection();
+  sel.removeAllRanges();
+  if (range) sel.addRange(range);
+  else { sel.selectAllChildren(body); sel.collapseToEnd(); }
+}
+
+function pickerKey(e) {
+  const count = picker.results.length;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!count) return;
+    picker.index = (picker.index + (e.key === 'ArrowDown' ? 1 : count - 1)) % count;
+    markOption(true);
+  } else if (e.key === 'Enter' || e.key === 'Tab') {
+    if (!count) {
+      if (picker.mode === 'button') e.preventDefault();
+      else closePicker();
+      return;
+    }
+    e.preventDefault();
+    choosePicker(picker.index);
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation();
+    if (picker.step === 'marks') { leaveMarks(); return; }
+    const { mode, range } = picker;
+    closePicker();
+    if (mode === 'button') restoreSelection(range);
+  } else if (e.key === 'Backspace' && picker.mode === 'button' && picker.step === 'marks' && !linkSearch.value) {
+    e.preventDefault();
+    leaveMarks();
+  }
+}
+
+// Con @ se reemplaza "@búsqueda"; con el botón, el texto seleccionado pasa a ser el enlace.
+// Una página con marcadores no se enlaza aún: primero se elige el marcador (o la página completa).
+function choosePicker(index) {
+  const entry = picker && picker.results[index];
+  if (!entry) return;
+  if (picker.step === 'pages' && marksOf(entry.page).length) { enterMarks(entry.page); return; }
+  const { page: target, mark } = entry;
+  let range = picker.range || null;
+  if (picker.mode === 'inline') {
+    const query = inlineQuery();
+    if (query === null) { closePicker(); return; }
+    range = document.createRange();
+    range.setStart(picker.node, picker.offset);
+    range.setEnd(picker.node, picker.offset + 1 + query.length);
+  }
+  const selected = picker.mode === 'button' && range && !range.collapsed ? range.toString().replace(/\s+/g, ' ').trim() : '';
+  closePicker();
+  if (selected && blockOf(range.startContainer) !== blockOf(range.endContainer)) {
+    restoreSelection(range);
+    toast('Selecciona texto de una sola línea');
+    return;
+  }
+  restoreSelection(range);
+  const link = h('a', { 'data-page': target.id, 'data-mark': mark ? mark.id : null, 'data-own': selected ? '' : null, text: selected || linkLabel(target, mark) });
+  // Con execCommand, Ctrl+Z también deshace el enlace.
+  document.execCommand('insertHTML', false, link.outerHTML + (selected ? '' : '&nbsp;'));
+  paintLinks();
+  paintEmptyBody();
+  markDirty();
+  updateBar();
+}
+
+btnLink.addEventListener('click', () => {
+  if (picker && picker.mode === 'button') {
+    const { range } = picker;
+    closePicker();
+    restoreSelection(range);
+    return;
+  }
+  const range = selectionRange();
+  openPicker({ mode: 'button', range: range ? range.cloneRange() : null });
+});
+/* Crear, renombrar y quitar marcadores. */
+
+const btnMark = $('btnMark');
+const markEditor = $('markEditor');
+const markName = $('markName');
+let markEdit = null;  // { range }: la selección a la que vuelve el foco al cerrar
+
+// El bloque del cursor, o null si el texto está suelto en la raíz de la hoja.
+function caretBlock(range) {
+  const block = range ? blockOf(range.startContainer) : null;
+  return block && block !== body ? block : null;
+}
+
+function paintMarkButton() {
+  const block = caretBlock(selectionRange());
+  btnMark.setAttribute('aria-pressed', String(!!(block && block.hasAttribute('data-mark-id'))));
+}
+
+function nextMarkName() {
+  // El primer número libre: con solo "Presupuesto", el siguiente es "Marcador 1".
+  const used = new Set(readMarks(body).map(m => norm(m.name)));
+  let n = 1;
+  while (used.has(norm(`Marcador ${n}`))) n++;
+  return `Marcador ${n}`;
+}
+
+// Un nombre por página, sin distinguir mayúsculas, tildes ni espacios: en el buscador se verían iguales.
+// `block` es el que se está editando: conservar su propio nombre sí vale. Devuelve el nombre que ya existe.
+function markNameTaken(name, block) {
+  const key = norm(name);
+  if (!key) return null;
+  const other = [...body.querySelectorAll('[data-mark-id]')].find(el => el !== block && norm(el.getAttribute('data-mark-name') || '') === key);
+  return other ? other.getAttribute('data-mark-name') : null;
+}
+
+// Avisa mientras escribes y no deja guardar un nombre repetido.
+function checkMarkName() {
+  const existing = markEdit ? markNameTaken(cleanMarkName(markName.value), caretBlock(markEdit.range)) : null;
+  const taken = existing !== null;
+  const error = $('markError');
+  error.hidden = !taken;
+  error.textContent = taken ? `Ya hay un marcador «${existing}» en esta página. Elige otro nombre.` : '';
+  if (taken) markName.setAttribute('aria-invalid', 'true');
+  else markName.removeAttribute('aria-invalid');
+  $('markSave').disabled = taken;
+  return !taken;
+}
+
+function openMarkEditor() {
+  const range = selectionRange();
+  if (!range) { toast('Pon el cursor en el párrafo que quieres marcar'); return; }
+  closePicker();
+  const block = caretBlock(range);
+  const existing = block && block.hasAttribute('data-mark-id') ? block : null;
+  markEdit = { range: range.cloneRange() };
+  markName.value = existing ? existing.getAttribute('data-mark-name') : nextMarkName();
+  $('markRemove').hidden = !existing;
+  btnMark.setAttribute('aria-expanded', 'true');
+  markEditor.hidden = false;
+  const rect = btnMark.getBoundingClientRect();
+  const box = markEditor.getBoundingClientRect();
+  markEditor.style.top = `${clamp(rect.bottom + 6, 8, Math.max(8, innerHeight - box.height - 8))}px`;
+  markEditor.style.left = `${clamp(rect.left, 8, Math.max(8, innerWidth - box.width - 8))}px`;
+  checkMarkName();
+  markName.focus({ preventScroll: true });
+  markName.select();
+}
+
+function closeMarkEditor(restore) {
+  if (!markEdit) return;
+  const { range } = markEdit;
+  markEdit = null;
+  markEditor.hidden = true;
+  btnMark.setAttribute('aria-expanded', 'false');
+  if (restore) restoreSelection(range);
+}
+
+// El marcador es del bloque entero: sigue ahí aunque edites su texto.
+function saveMark() {
+  if (!markEdit) return;
+  if (!checkMarkName()) { markName.focus({ preventScroll: true }); markName.select(); return; }
+  const name = cleanMarkName(markName.value) || nextMarkName();
+  const { range } = markEdit;
+  closeMarkEditor(true);
+  let block = caretBlock(range);
+  if (!block) {
+    // La primera línea de una página suele ir suelta: se envuelve en un párrafo para poder marcarla.
+    document.execCommand('formatBlock', false, '<p>');
+    const sel = getSelection();
+    block = sel.rangeCount ? caretBlock(sel.getRangeAt(0)) : null;
+    if (!block) { toast('No se pudo marcar ese texto'); return; }
+  }
+  if (!block.hasAttribute('data-mark-id')) block.setAttribute('data-mark-id', uuid());
+  block.setAttribute('data-mark-name', name);
+  afterMarkChange();
+  toast(`Marcador "${name}" guardado. Enlázalo escribiendo @ y eligiendo esta página.`);
+}
+
+function removeMark() {
+  const { range } = markEdit;
+  closeMarkEditor(true);
+  const block = caretBlock(range);
+  if (!block || !block.hasAttribute('data-mark-id')) return;
+  block.removeAttribute('data-mark-id');
+  block.removeAttribute('data-mark-name');
+  afterMarkChange();
+}
+
+function afterMarkChange() {
+  markDirty();
+  paintLinks();
+  updateBar();
+}
+
+// Al unir dos párrafos, Chrome conserva el de arriba y le pasa el texto del de abajo: si el marcado
+// era el de abajo, su marcador desaparecería con él. Se guarda antes de borrar y se devuelve al
+// bloque unido. Solo con el cursor sin selección y si el párrafo tenía texto: borrarlo entero sí lo quita.
+let marksBeforeDelete = null;
+
+function rememberMarks(e) {
+  const sel = getSelection();
+  marksBeforeDelete = e.inputType.startsWith('delete') && sel.rangeCount && sel.isCollapsed ? readMarks(body) : null;
+}
+
+function keepMergedMark() {
+  const before = marksBeforeDelete;
+  marksBeforeDelete = null;
+  if (!before || !before.length) return;
+  const now = new Set(readMarks(body).map(m => m.id));
+  const lost = before.filter(m => !now.has(m.id));
+  if (lost.length !== 1 || !lost[0].text) return;
+  const sel = getSelection();
+  const block = sel.rangeCount ? caretBlock(sel.getRangeAt(0)) : null;
+  if (!block || block.hasAttribute('data-mark-id')) return;
+  block.setAttribute('data-mark-id', lost[0].id);
+  block.setAttribute('data-mark-name', lost[0].name);
+}
+
+btnMark.addEventListener('click', () => {
+  if (markEdit) closeMarkEditor(true);
+  else openMarkEditor();
+});
+$('markSave').addEventListener('click', saveMark);
+$('markRemove').addEventListener('click', removeMark);
+markName.addEventListener('keydown', e => {
+  if (e.isComposing) return;
+  if (e.key === 'Enter') { e.preventDefault(); saveMark(); }
+  else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeMarkEditor(true); }
+});
+markName.addEventListener('input', checkMarkName);
+markName.addEventListener('blur', () => closeMarkEditor(false));
+// Pulsar Guardar o Quitar no debe quitarle el foco al nombre: lo cerraría antes del clic.
+markEditor.addEventListener('mousedown', e => { if (e.target !== markName) e.preventDefault(); });
+
+linkSearch.addEventListener('input', searchPicker);
+linkSearch.addEventListener('blur', () => { if (picker && picker.mode === 'button') closePicker(); });
+linkSearch.addEventListener('keydown', e => { if (picker && !e.isComposing) pickerKey(e); });
+// Elegir una opción no debe quitarle el foco al texto ni al buscador.
+linkPicker.addEventListener('mousedown', e => { if (e.target !== linkSearch) e.preventDefault(); });
+
+body.addEventListener('keydown', e => {
+  if (picker && picker.mode === 'inline' && !e.isComposing) pickerKey(e);
+});
+body.addEventListener('blur', () => { if (picker && picker.mode === 'inline') closePicker(); });
+document.addEventListener('selectionchange', () => {
+  if (!picker || picker.mode !== 'inline') return;
+  const query = inlineQuery();
+  if (query === null) closePicker();
+  else if (query !== picker.query) updateInline();
+});
+document.addEventListener('pointerdown', e => {
+  if (picker && !linkPicker.contains(e.target) && !btnLink.contains(e.target)) closePicker();
+}, true);
+scroller.addEventListener('scroll', positionPicker);
+window.addEventListener('resize', positionPicker);
+
+/* Burbuja del enlace. Con ratón aparece al dejarlo encima un momento; en táctil, al tocar el enlace. */
+
+const linkBubble = $('linkBubble');
+const BUBBLE_SHOW_MS = 350;
+const BUBBLE_HIDE_MS = 250;  // margen para llevar el ratón del enlace a la burbuja
+let bubbleLink = null;
+let bubbleTimer = 0;
+let lastPointer = 'mouse';
+
+function showBubble(link) {
+  clearTimeout(bubbleTimer);
+  if (!body.contains(link)) { hideBubble(); return; }
+  bubbleLink = link;
+  // paintLinks ya dejó en data-dest adónde lleva el enlace, o que la página no existe.
+  $('linkDest').textContent = link.dataset.dest || pageName({ title: link.textContent });
+  $('linkDest').title = $('linkDest').textContent;  // completo, por si no cabe
+  $('linkOpen').disabled = link.classList.contains('nb-link-broken');
+  linkBubble.hidden = false;
+  positionBubble();
+}
+
+// Encima de la primera línea del enlace (o debajo si no cabe); se va si el enlace sale de la vista.
+function positionBubble() {
+  if (!bubbleLink) return;
+  if (!body.contains(bubbleLink)) { hideBubble(); return; }
+  const rect = bubbleLink.getClientRects()[0] || bubbleLink.getBoundingClientRect();
+  const view = scroller.getBoundingClientRect();
+  if (rect.bottom < view.top || rect.top > view.bottom) { hideBubble(); return; }
+  const box = linkBubble.getBoundingClientRect();
+  const above = rect.top - box.height - 6;
+  const top = above >= Math.max(8, view.top) ? above : rect.bottom + 6;
+  linkBubble.style.top = `${clamp(top, 8, Math.max(8, innerHeight - box.height - 8))}px`;
+  linkBubble.style.left = `${clamp(rect.left, 8, Math.max(8, innerWidth - box.width - 8))}px`;
+}
+
+function hideBubble() {
+  clearTimeout(bubbleTimer);
+  bubbleTimer = 0;
+  if (!bubbleLink) return;
+  bubbleLink = null;
+  linkBubble.hidden = true;
+}
+
+function hideBubbleSoon() {
+  clearTimeout(bubbleTimer);
+  bubbleTimer = setTimeout(hideBubble, BUBBLE_HIDE_MS);
+}
+
+// El texto se queda donde estaba, ya sin enlace. Con execCommand, Ctrl+Z devuelve el enlace.
+function unlink(link) {
+  hideBubble();
+  if (!body.contains(link)) return;
+  const text = link.textContent;
+  const range = document.createRange();
+  range.selectNode(link);
+  restoreSelection(range);
+  pasting = true;  // el texto puede llevar una @: no debe abrir el buscador
+  try {
+    document.execCommand('insertText', false, text);
+  } finally {
+    pasting = false;
+  }
+  if (body.contains(link)) link.replaceWith(document.createTextNode(text));
+  paintLinks();
+  paintEmptyBody();
+  markDirty();
+  updateBar();
+}
+
+const bubbleLinkAt = target => {
+  const link = target && target.closest ? target.closest('a[data-page]') : null;
+  return link && body.contains(link) ? link : null;
+};
+
+body.addEventListener('pointerdown', e => { lastPointer = e.pointerType || 'mouse'; }, true);
+body.addEventListener('pointerover', e => {
+  if (e.pointerType === 'touch') return;
+  const link = bubbleLinkAt(e.target);
+  if (!link) return;
+  clearTimeout(bubbleTimer);
+  if (link === bubbleLink) return;
+  // Si ya había una burbuja abierta, pasa al otro enlace sin esperar.
+  bubbleTimer = setTimeout(() => showBubble(link), bubbleLink ? 0 : BUBBLE_SHOW_MS);
+});
+body.addEventListener('pointerout', e => {
+  if (e.pointerType === 'touch') return;
+  const link = bubbleLinkAt(e.target);
+  if (!link || link.contains(e.relatedTarget)) return;
+  if (bubbleLink) hideBubbleSoon();
+  else clearTimeout(bubbleTimer);
+});
+linkBubble.addEventListener('pointerenter', () => clearTimeout(bubbleTimer));
+linkBubble.addEventListener('pointerleave', e => { if (e.pointerType !== 'touch') hideBubbleSoon(); });
+// Pulsar la burbuja no debe quitarle el foco al editor: el blur guardaría y movería el cursor.
+linkBubble.addEventListener('mousedown', e => e.preventDefault());
+$('linkOpen').addEventListener('click', () => {
+  const link = bubbleLink;
+  hideBubble();
+  if (link) goToPage(link.dataset.page, true, link.dataset.mark);
+});
+$('linkUnlink').addEventListener('click', () => { if (bubbleLink) unlink(bubbleLink); });
+document.addEventListener('pointerdown', e => {
+  if (bubbleLink && !linkBubble.contains(e.target) && bubbleLinkAt(e.target) !== bubbleLink) hideBubble();
+}, true);
+body.addEventListener('keydown', () => hideBubble());
+scroller.addEventListener('scroll', positionBubble, { passive: true });
+window.addEventListener('resize', positionBubble);
+
 /* ---------- Copia de seguridad ---------- */
 
 function blobToBase64(blob) {
@@ -2102,7 +3077,17 @@ $('pageTitle').addEventListener('input', markDirty);
 $('pageTitle').addEventListener('keydown', e => {
   if (e.key === 'Enter') { e.preventDefault(); focusEditor(); }
 });
-body.addEventListener('input', () => { markDirty(); paintEmptyBody(); });
+body.addEventListener('beforeinput', rememberMarks);
+body.addEventListener('input', e => {
+  markDirty();
+  paintEmptyBody();
+  if (e.inputType === 'insertParagraph') dedupeMarks(body);
+  else keepMergedMark();
+  // Deshacer y rehacer devuelven el enlace tal como se insertó: sin pintar ni bloquear.
+  if (e.inputType.startsWith('history')) paintLinks();
+  if (picker && picker.mode === 'inline') updateInline();
+  else if (!pasting && typeof e.data === 'string' && e.data.includes('@') && e.inputType.startsWith('insert')) maybeOpenInline(e.data);
+});
 body.addEventListener('blur', flush);
 // Excel y Word añaden una foto de lo copiado: si hay texto, lo que quieres es el texto.
 function pasteImages(data) {
@@ -2122,12 +3107,20 @@ body.addEventListener('paste', e => {
   const data = e.clipboardData;
   if (pasteImages(data)) return;
   const html = data.getData('text/html');
-  const clean = html ? sanitizeNote(html) : '';
+  const clean = html ? sanitizeNote(html, { marks: false }) : '';
   selectImage(null);
   const plain = data.getData('text/plain');
-  if (clean) document.execCommand('insertHTML', false, clean);
-  else if (plain) document.execCommand('insertText', false, plain);
-  else if (/<img/i.test(html)) toast('Esa imagen está en internet. Cópiala con "Copiar imagen" para pegarla.');
+  // Una @ en lo pegado no abre el buscador: eso es solo para lo que escribes.
+  pasting = true;
+  try {
+    if (clean) {
+      document.execCommand('insertHTML', false, clean);
+      paintLinks();
+    } else if (plain) document.execCommand('insertText', false, plain);
+    else if (/<img/i.test(html)) toast('Esa imagen está en internet. Cópiala con "Copiar imagen" para pegarla.');
+  } finally {
+    pasting = false;
+  }
 });
 scroller.addEventListener('dragover', e => e.preventDefault());
 scroller.addEventListener('drop', e => {

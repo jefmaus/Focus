@@ -144,6 +144,7 @@ Mi día te recuerda hacer una copia si llevas más de 30 días sin una.
 - **Formato:** una barra fija en la parte superior de la página ofrece negrita, cursiva, subrayado, estilos, color, resaltado, listas y quitar formato.
 - **Checklist:** el botón del pie de la página convierte cada línea del texto en un elemento por marcar, y **Texto libre** lo devuelve a líneas. Si no cambiaste los elementos, el texto vuelve idéntico, con su formato; si los cambiaste, vuelve con una línea por elemento y sin formato. Las marcas se recuerdan y las imágenes se quedan donde están.
 - **Imágenes:** consulta [Imágenes en las notas](#imágenes-en-las-notas).
+- **Enlaces entre páginas:** consulta [Enlaces entre páginas](#enlaces-entre-páginas).
 
 Sus datos están separados de los de Mi día, en otra base de IndexedDB, y tienen su propia copia de seguridad con los botones **Exportar** e **Importar**. Importar **reemplaza todas las notas**, previa confirmación. La copia de Mi día no incluye las notas.
 
@@ -165,6 +166,46 @@ Ten en cuenta estos límites:
 - `Ctrl+Z` no afecta a las imágenes.
 - Al pegar desde una web texto con imágenes, solo se conserva el texto. Las imágenes externas se descartan para no cargar nada de internet sin que lo pidas.
 - El buscador no encuentra el contenido de las imágenes.
+
+### Enlaces entre páginas
+
+Desde cualquier página puedes enlazar otra, aunque esté en otro cuaderno, como en Notion.
+
+- **Con `@`:** escribe `@` y empieza a teclear el título. Aparece un buscador con las páginas de todos los cuadernos (el nombre del cuaderno sale debajo de cada título). Elige con `↑` `↓` y `Enter` o con un clic. `Esc` deja la `@` como texto normal.
+- **La `@` de los correos no abre nada:** el buscador solo aparece si la `@` va al principio de la línea o después de un espacio. En `ana@correo.com` la `@` está pegada a otro carácter, así que se escribe tal cual.
+- **Con el botón de la barra** (el icono de cadena): abre el mismo buscador. Si tenías texto seleccionado, ese texto se convierte en el enlace. Si no, se inserta el enlace en el cursor.
+- **Título vivo:** el enlace insertado con `@`, o con el botón sin selección, muestra siempre el título actual de la página. Si la renombras, el enlace cambia solo. El texto que seleccionaste para un enlace se mantiene tal cual.
+- **Ir y volver:** haz clic en el enlace para abrir la página, aunque esté en otro cuaderno. Arriba aparece un botón `← Título` para volver a la página de donde venías. El recorrido empieza de nuevo cuando eliges una página o un cuaderno desde las listas.
+- **Enlazado desde:** al pie de cada página se listan las páginas que la enlazan.
+- **Burbuja del enlace:** si dejas el ratón un momento sobre un enlace, aparece una burbuja que dice adónde lleva, con los botones **Abrir** y **Quitar enlace**. En el móvil, tocar el enlace muestra la burbuja en vez de abrirlo, y **Abrir** lleva a la página.
+- **Quitar el enlace y dejar el texto:** pulsa **Quitar enlace** en la burbuja. El texto se queda como texto normal. En los enlaces de título vivo, el que queda es el título de la página. `Ctrl+Z` devuelve el enlace.
+- **Borrar un enlace:** se borra entero, con su texto, con `Retroceso` o `Supr`, y `Ctrl+Z` lo devuelve.
+- **Enlaces rotos:** si eliminas la página enlazada, el enlace se ve tachado y avisa al hacer clic. Si deshaces la eliminación, vuelve a funcionar.
+
+#### Marcadores
+
+Un marcador da nombre a un párrafo, título o elemento de lista para poder enlazarlo directamente, como los marcadores de Word.
+
+- **Crear:** pon el cursor en el párrafo (o selecciona parte de su texto) y pulsa el botón de la banderita en la barra. Escribe un nombre, por ejemplo `Marcador 1`, y pulsa `Enter`. El párrafo marcado muestra una banderita en el margen izquierdo.
+- **Un nombre por página:** dos marcadores de la misma página no pueden llamarse igual, sin distinguir mayúsculas ni tildes (`Prueba 1` y `prueba 1` cuentan como el mismo). Si escribes un nombre que ya existe, el editor lo avisa y no deja guardarlo. Si ya tenías nombres repetidos de antes, el aviso aparece al abrir uno de ellos, y basta con cambiarle el nombre.
+- **Renombrar o quitar:** con el cursor en el párrafo marcado, la banderita de la barra aparece activa. Púlsala para cambiar el nombre o quitar el marcador.
+- **Enlazar:** escribe `@` y elige la página. Si tiene marcadores, el buscador pasa a un segundo paso con **Página completa** y sus marcadores. Si no tiene, el enlace va a la página directamente. `Esc` o borrar lo escrito vuelve a la lista de páginas. También funciona con el botón de enlazar.
+- **En la misma página:** la página abierta aparece en el buscador como *esta página* si tiene marcadores, para enlazar a una parte de ella misma.
+- **Ir:** el enlace muestra `Página › Marcador`, o solo el marcador si está en la misma página. Al hacer clic se abre la página, se desplaza hasta el párrafo y lo resalta un momento. El cursor queda al principio de ese párrafo.
+
+El marcador pertenece al bloque entero, así que sigue funcionando aunque edites su texto. También resiste partir el párrafo con `Enter`, porque se queda en la parte que conserva texto, y unirlo con el de arriba o el de abajo. Ten en cuenta:
+
+- Cada bloque admite un solo marcador. Si unes dos párrafos marcados, el bloque unido conserva el marcador del de arriba.
+- Si borras el párrafo marcado, sus enlaces muestran solo el título de la página, con el subrayado discontinuo. Al hacer clic abren la página desde el inicio y avisan de que el marcador ya no existe.
+- Al copiar y pegar un párrafo marcado, la copia no lleva el marcador.
+- `Ctrl+Z` no deshace crear, renombrar ni quitar un marcador.
+- En modo checklist no se ven. Si vuelves a **Texto libre** después de cambiar la lista, se pierden igual que el formato.
+
+El enlace guarda el identificador de la página, no su posición, así que sigue funcionando aunque muevas o reordenes las páginas, y también después de exportar e importar una copia. Ten en cuenta:
+
+- En modo checklist los enlaces se ven como texto. Si vuelves a **Texto libre** sin cambiar los elementos, regresan. Si los cambiaste, el texto vuelve sin formato y sin enlaces.
+- Al renombrar una página, las que la enlazan muestran el nombre nuevo, pero el buscador de páginas las sigue encontrando por el nombre anterior hasta que las edites.
+- Al pegar texto de una web, sus enlaces se quedan solo como texto.
 
 ## Navaja suiza
 
