@@ -13,7 +13,7 @@ Cada aplicación es un único archivo HTML autocontenido, con sus propios datos,
 | [`index.html`](index.html) | Lanzador: un menú siempre visible con cada aplicación abierta a su lado. |
 | [`midia.html`](midia.html) | Planificación del día y medición del tiempo. Es lo que describe la mayor parte de este documento. |
 | [`notas.html`](notas.html) | Apuntes en cuadernos y páginas. Consulta [Notas](#notas). |
-| [`navaja.html`](navaja.html) | Herramientas cotidianas de programador. Consulta [Navaja suiza](#navaja-suiza). |
+| [`navaja.html`](navaja.html) | Herramientas para tu día en la oficina. Consulta [Navaja suiza](#navaja-suiza). |
 
 ### Lanzador
 
