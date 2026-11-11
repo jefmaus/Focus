@@ -386,6 +386,25 @@ table.diff td.blank { background: repeating-linear-gradient(-45deg, transparent 
 .qr-box { display: grid; place-items: center; padding: 16px; background: var(--field); border: 1px solid var(--line); border-radius: 14px; }
 .qr-box canvas { max-width: 100%; height: auto; image-rendering: pixelated; border-radius: 6px; }
 
+/* Sorteo */
+.rf-box { display: grid; gap: 12px; }
+.rf-box .fields { max-width: 640px; }
+.rf-winner { display: grid; place-items: center; gap: 8px; min-height: 130px; padding: 18px; background: var(--field); border: 1px solid var(--line); border-radius: 14px; text-align: center; }
+.rf-winner small { color: var(--muted); font-size: .8125rem; }
+.rf-names { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.rf-names b { padding: 6px 18px; background: color-mix(in srgb, var(--c, var(--accent)) 16%, var(--surface)); border: 1px solid color-mix(in srgb, var(--c, var(--accent)) 40%, var(--line)); border-radius: 99px; font-size: 1.375rem; line-height: 1.3; overflow-wrap: anywhere; }
+.rf-winner.rolling b { opacity: .55; }
+.rf-history li { justify-content: space-between; }
+.rf-history .note { flex: none; }
+.rf-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+.rf-groups:empty { display: none; }
+.rf-group { min-width: 0; padding: 12px 14px; background: var(--field); border: 1px solid var(--line); border-top: 3px solid var(--c, var(--accent)); border-radius: 12px; }
+.rf-group h3 { display: flex; justify-content: space-between; gap: 8px; margin: 0 0 6px; font-size: .9375rem; }
+.rf-group h3 span { color: var(--muted); font-size: .8125rem; font-weight: 500; }
+.rf-group ol { margin: 0; padding-left: 1.3em; font-size: .9375rem; overflow-wrap: anywhere; }
+tr.rf-next td { background: color-mix(in srgb, var(--c, var(--accent)) 12%, transparent); }
+tr.rf-next .chip { margin-left: 8px; font-size: .75rem; }
+
 /* JWT */
 .jwt { margin: 0; padding: 12px 14px; background: var(--field); border: 1px solid var(--line); border-radius: 10px; font: .875rem/1.55 var(--mono); overflow-wrap: anywhere; }
 .jwt .p0 { color: #d93025; } .jwt .p1 { color: #a142f4; } .jwt .p2 { color: #1a73e8; }
@@ -6574,6 +6593,292 @@ tool({
           }, { icon: 'copy' }))),
     ));
     draw();
+  },
+});
+
+/* ---------- Sorteo y equipos ---------- */
+
+// Mezcla de Fisher–Yates con el azar seguro del navegador.
+function shuffled(list) {
+  const a = [...list];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = randInt(i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+// Dos nombres son el mismo si solo cambian las mayúsculas o los espacios.
+const rfKey = name => name.toLocaleLowerCase('es');
+// Un nombre por línea. Si se pega una fila de Excel con varias celdas, se juntan con un espacio.
+function rfNames(text, dedupe) {
+  const out = [];
+  const seen = new Set();
+  let repeated = 0;
+  for (const line of text.split(/\r?\n/)) {
+    const name = line.split('\t').map(s => s.trim()).filter(Boolean).join(' ').replace(/\s+/g, ' ');
+    if (!name) continue;
+    if (dedupe) {
+      if (seen.has(rfKey(name))) { repeated++; continue; }
+      seen.add(rfKey(name));
+    }
+    out.push(name);
+  }
+  return { names: out, repeated };
+}
+// `list` menos `gone`, contando repetidos: si hay dos «Ana» y salió una, queda la otra.
+function rfWithout(list, gone) {
+  const left = new Map();
+  for (const n of gone) left.set(rfKey(n), (left.get(rfKey(n)) || 0) + 1);
+  return list.filter(n => {
+    const k = rfKey(n);
+    if (!left.get(k)) return true;
+    left.set(k, left.get(k) - 1);
+    return false;
+  });
+}
+// Mantiene el orden de turnos ya hecho: quita a quien ya no está y pone al final, mezclados, a los nuevos.
+function rfReconcile(order, names) {
+  const pending = new Map();
+  for (const n of names) pending.set(rfKey(n), [...(pending.get(rfKey(n)) || []), n]);
+  const kept = [];
+  for (const n of order) {
+    const same = pending.get(rfKey(n));
+    if (same && same.length) kept.push(same.shift());
+  }
+  return [...kept, ...shuffled([...pending.values()].flat())];
+}
+const isoDay = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const isWeekend = d => d.getDay() === 0 || d.getDay() === 6;
+function turnDates(start, freq, n) {
+  const out = [];
+  const d = new Date(start);
+  if (freq === 'work') while (isWeekend(d)) d.setDate(d.getDate() + 1);
+  for (let i = 0; i < n; i++) {
+    if (freq === 'month') {
+      // El mismo día de cada mes; en los meses más cortos, el último día.
+      const m = new Date(start.getFullYear(), start.getMonth() + i, 1);
+      m.setDate(Math.min(start.getDate(), new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate()));
+      out.push(m);
+      continue;
+    }
+    out.push(new Date(d));
+    if (freq === 'day') d.setDate(d.getDate() + 1);
+    else if (freq === 'week') d.setDate(d.getDate() + 7);
+    else if (freq === '2week') d.setDate(d.getDate() + 14);
+    else do d.setDate(d.getDate() + 1); while (isWeekend(d));
+  }
+  return out;
+}
+
+tool({
+  id: 'sorteo', cat: 'generar', name: 'Sorteo y equipos', color: '#7cb342',
+  desc: 'Elige a alguien al azar, reparte una lista en grupos parejos o arma turnos rotativos.',
+  keywords: 'sorteo azar aleatorio rifa ganador ruleta elegir equipos grupos repartir turnos rotacion rotativos nombres lista amigo secreto',
+  icon: '<rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/><circle cx="8.5" cy="8.5" r="1.2"/><circle cx="15.5" cy="8.5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="8.5" cy="15.5" r="1.2"/><circle cx="15.5" cy="15.5" r="1.2"/>',
+  render(body, ctx) {
+    const list = textarea(ctx, 'names', { rows: 12, mono: false, placeholder: 'Un nombre por línea, por ejemplo:\nAna\nLuis\nMarta', label: 'Participantes' });
+    const dedupe = check(ctx, 'dedupe', 'Quitar repetidos', true, () => paintAll());
+    const countInfo = h('span', { class: 'note' });
+    const names = () => rfNames(list.value, dedupe.input.checked).names;
+    const intOf = (control, lo, hi, fallback) => clamp(parseInt(control.value, 10) || fallback, lo, hi);
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+    const when = t => new Date(t).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' });
+
+    /* Elegir al azar */
+    const pickN = input(ctx, 'pickN', { type: 'number', min: 1, max: 999, value: '1' });
+    const noRepeat = check(ctx, 'noRepeat', 'No repetir ganadores', true, on => { if (!on) { drawn = []; ctx.set('drawn', drawn); } paintPick(); });
+    let drawn = ctx.get('drawn', []);
+    let history = ctx.get('history', []);
+    const pool = () => (noRepeat.input.checked ? rfWithout(names(), drawn) : names());
+    const winner = h('div', { class: 'rf-winner', 'aria-live': 'polite' });
+    const poolInfo = h('span', { class: 'note' });
+    const refillBtn = btn('Volver a meter a todos', () => { drawn = []; ctx.set('drawn', drawn); paintPick(); toast('Todos vuelven al bombo'); }, { icon: 'refresh', small: true });
+    const pickStatus = statusLine();
+    let spin = 0;
+    const showWinners = (list2, label, rolling) => {
+      winner.classList.toggle('rolling', !!rolling);
+      winner.replaceChildren(
+        h('div', { class: 'rf-names' }, list2.map(n => h('b', { text: n }))),
+        label ? h('small', { text: label }) : null);
+    };
+    const drawBtn = btn('Sortear', () => {
+      if (spin) return;
+      const p = pool();
+      if (!p.length) { paintPick(); return; }
+      const want = intOf(pickN, 1, 999, 1);
+      const winners = shuffled(p).slice(0, want);
+      const finish = () => {
+        spin = 0;
+        drawBtn.disabled = false;
+        history = [{ t: Date.now(), names: winners }, ...history].slice(0, 50);
+        ctx.set('history', history);
+        if (noRepeat.input.checked) { drawn = [...drawn, ...winners]; ctx.set('drawn', drawn); }
+        paintPick();
+        if (want > p.length) toast(p.length === 1 ? 'Solo quedaba 1 en el bombo.' : `Solo quedaban ${p.length} en el bombo.`);
+      };
+      if (reduced.matches || p.length < 2) { finish(); return; }
+      // Unos nombres que van pasando antes del resultado, sin influir en él.
+      drawBtn.disabled = true;
+      let ticks = 0;
+      spin = setInterval(() => {
+        showWinners(shuffled(p).slice(0, Math.min(want, p.length)), 'Sorteando…', true);
+        if (++ticks >= 14) { clearInterval(spin); finish(); }
+      }, 70);
+    }, { icon: 'play', primary: true });
+    const histList = h('ul', { class: 'list rf-history' });
+    const histText = () => history.map(x => `${when(x.t)} · ${x.names.join(', ')}`).join('\n');
+    const histPanel = panel('Historial', histList, row(
+      copyBtn(histText, 'Copiar historial', { small: true }),
+      btn('Vaciar historial', () => { history = []; ctx.set('history', history); paintPick(); }, { icon: 'clear', small: true })));
+    const pickBox = h('div', { class: 'rf-box' },
+      h('div', { class: 'fields' }, field('Cuántos elegir', pickN)),
+      noRepeat,
+      row(drawBtn, refillBtn, poolInfo),
+      pickStatus,
+      winner);
+    function paintPick() {
+      if (spin) return;
+      const all = names();
+      const p = pool();
+      const gone = all.length - p.length;
+      refillBtn.hidden = !noRepeat.input.checked || !gone;
+      poolInfo.textContent = noRepeat.input.checked && all.length ? `Quedan ${p.length} de ${all.length} en el bombo.` : '';
+      drawBtn.disabled = !p.length;
+      if (!all.length) pickStatus.show('Escribe los nombres en «Participantes» para empezar.');
+      else if (!p.length) pickStatus.show('Ya salieron todos. Pulsa «Volver a meter a todos» para empezar otra ronda.');
+      else pickStatus.show('');
+      const last = history[0];
+      if (last) showWinners(last.names, `${last.names.length === 1 ? 'Elegido' : 'Elegidos'} el ${when(last.t)}`);
+      else winner.replaceChildren(h('small', { text: 'Aquí aparecerá el resultado.' }));
+      histPanel.hidden = mode.value !== 'pick' || !history.length;
+      histList.replaceChildren(...history.map(x => h('li', {}, h('span', { text: x.names.join(', ') }), h('small', { class: 'note', text: when(x.t) }))));
+    }
+    pickN.addEventListener('input', () => paintPick());
+
+    /* Hacer grupos */
+    const gBy = seg(ctx, 'gBy', [['count', 'Número de grupos'], ['size', 'Personas por grupo']], 'count', () => { gLabel.textContent = gBy.value === 'count' ? 'Grupos' : 'Personas por grupo'; paintGroups(); });
+    const gN = input(ctx, 'gN', { type: 'number', min: 1, max: 999, value: '2' });
+    const gField = field('Grupos', gN);
+    const gLabel = gField.firstChild;
+    gLabel.textContent = gBy.value === 'count' ? 'Grupos' : 'Personas por grupo';
+    let groups = ctx.get('groups', []);
+    const sig = list2 => list2.map(rfKey).sort().join('\n');
+    const groupsOut = h('div', { class: 'rf-groups' });
+    const groupsStatus = statusLine();
+    const groupsText = () => groups.map((g, i) => `Grupo ${i + 1}\n${g.join('\n')}`).join('\n\n');
+    // Para Excel: una columna por grupo.
+    const groupsTsv = () => {
+      const rows = [groups.map((_, i) => `Grupo ${i + 1}`).join('\t')];
+      for (let r = 0; r < Math.max(0, ...groups.map(g => g.length)); r++) rows.push(groups.map(g => g[r] || '').join('\t'));
+      return rows.join('\n');
+    };
+    const dealBtn = btn('Repartir', () => {
+      const all = names();
+      if (all.length < 2) { paintGroups(); return; }
+      const n = intOf(gN, 1, 999, 2);
+      const k = clamp(gBy.value === 'count' ? n : Math.ceil(all.length / n), 1, all.length);
+      // Repartir como cartas: los tamaños se diferencian como mucho en 1.
+      groups = Array.from({ length: k }, () => []);
+      shuffled(all).forEach((name, i) => groups[i % k].push(name));
+      ctx.set('groups', groups);
+      ctx.set('gSig', sig(all));
+      paintGroups();
+    }, { icon: 'refresh', primary: true });
+    const groupsCopy = row(copyBtn(groupsText, 'Copiar', { small: true }), copyBtn(groupsTsv, 'Copiar para Excel', { small: true }));
+    const groupsBox = h('div', { class: 'rf-box' },
+      gBy,
+      h('div', { class: 'fields' }, gField),
+      h('p', { class: 'note', text: 'Si no da exacto, los grupos quedan lo más parejos posible.' }),
+      row(dealBtn),
+      groupsStatus,
+      groupsOut,
+      groupsCopy);
+    function paintGroups() {
+      const all = names();
+      dealBtn.querySelector('.face > span:last-child').textContent = groups.length ? 'Volver a repartir' : 'Repartir';
+      dealBtn.disabled = all.length < 2;
+      if (all.length < 2) groupsStatus.show('Hacen falta al menos dos nombres para repartir.');
+      else if (groups.length && ctx.get('gSig', '') !== sig(all)) groupsStatus.show('La lista cambió desde el último reparto: pulsa «Volver a repartir» para incluir los cambios.');
+      else groupsStatus.show('');
+      groupsCopy.hidden = !groups.length;
+      groupsOut.replaceChildren(...groups.map((g, i) => h('section', { class: 'rf-group' },
+        h('h3', {}, `Grupo ${i + 1}`, h('span', { text: g.length === 1 ? '1 persona' : `${g.length} personas` })),
+        h('ol', {}, g.map(n => h('li', { text: n }))))));
+    }
+    gN.addEventListener('input', () => paintGroups());
+
+    /* Turnos */
+    const today = new Date();
+    const tStart = input(ctx, 'tStart', { type: 'date', value: isoDay(today) });
+    const freq = select(ctx, 'freq', [['day', 'Cada día'], ['work', 'Cada día hábil (lunes a viernes)'], ['week', 'Cada semana'], ['2week', 'Cada 2 semanas'], ['month', 'Cada mes']], 'week', () => paintTurns());
+    const tN = input(ctx, 'tN', { type: 'number', min: 1, max: 500, value: '10' });
+    let order = ctx.get('order', []);
+    const turnsStatus = statusLine();
+    const turnsTable = h('tbody');
+    const turnsWrap = h('div', { class: 'scroll' }, h('table', { class: 'grid' },
+      h('thead', {}, h('tr', {}, h('th', { text: '#' }), h('th', { text: 'Fecha' }), h('th', { text: 'Persona' }))), turnsTable));
+    let turns = [];
+    const dateLabel = d => cap(d.toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }));
+    const turnsText = () => turns.map(([d, n]) => `${dateLabel(d)} · ${n}`).join('\n');
+    const turnsTsv = () => ['Fecha\tDía\tPersona', ...turns.map(([d, n]) => `${isoDay(d)}\t${d.toLocaleDateString('es', { weekday: 'long' })}\t${n}`)].join('\n');
+    const reorderBtn = btn('Nuevo orden', () => { order = shuffled(names()); ctx.set('order', order); paintTurns(); toast('Orden nuevo'); }, { icon: 'refresh', small: true });
+    const turnsCopy = row(copyBtn(turnsText, 'Copiar', { small: true }), copyBtn(turnsTsv, 'Copiar para Excel', { small: true }), reorderBtn);
+    const turnsBox = h('div', { class: 'rf-box' },
+      h('div', { class: 'fields' }, field('Desde', tStart), field('Frecuencia', freq), field('Cuántos turnos', tN)),
+      h('p', { class: 'note', text: 'El orden se sortea una vez y se repite en ciclo. Si añades a alguien, entra al final; «Nuevo orden» vuelve a sortearlo todo.' }),
+      turnsStatus,
+      turnsWrap,
+      turnsCopy);
+    function paintTurns() {
+      const all = names();
+      const next = rfReconcile(order, all);
+      if (next.length !== order.length || next.some((n, i) => n !== order[i])) { order = next; ctx.set('order', order); }
+      const [y, m, d] = tStart.value.split('-').map(Number);
+      const start = y && m && d ? new Date(y, m - 1, d) : null;
+      turns = [];
+      if (!all.length) turnsStatus.show('Escribe los nombres en «Participantes» para armar los turnos.');
+      else if (!start || Number.isNaN(start.getTime())) turnsStatus.show('Elige la fecha del primer turno.', 'bad');
+      else {
+        turnsStatus.show('');
+        turns = turnDates(start, freq.value, intOf(tN, 1, 500, 10)).map((day, i) => [day, order[i % order.length]]);
+      }
+      turnsWrap.hidden = !turns.length;
+      turnsCopy.hidden = !turns.length;
+      const todayIso = isoDay(new Date());
+      const upcoming = turns.findIndex(([day]) => isoDay(day) >= todayIso);
+      turnsTable.replaceChildren(...turns.map(([day, n], i) => h('tr', { class: i === upcoming ? 'rf-next' : null },
+        h('td', { text: String(i + 1) }),
+        h('td', {}, dateLabel(day), i === upcoming ? h('span', { class: 'chip', text: 'Próximo' }) : null),
+        h('td', { text: n }))));
+    }
+    tStart.addEventListener('input', () => paintTurns());
+    tN.addEventListener('input', debounce(() => paintTurns(), 150));
+
+    /* Modo */
+    const boxes = { pick: pickBox, groups: groupsBox, turns: turnsBox };
+    const mode = seg(ctx, 'mode', [['pick', 'Elegir al azar'], ['groups', 'Hacer grupos'], ['turns', 'Turnos']], 'pick', () => paintMode());
+    function paintMode() {
+      for (const [k, box] of Object.entries(boxes)) box.hidden = k !== mode.value;
+      histPanel.hidden = mode.value !== 'pick' || !history.length;
+    }
+    function paintAll() {
+      const { names: all, repeated } = rfNames(list.value, dedupe.input.checked);
+      countInfo.textContent = `${all.length === 1 ? '1 participante' : `${fmtNum(all.length)} participantes`}${repeated ? ` · ${repeated === 1 ? '1 repetido quitado' : `${repeated} repetidos quitados`}` : ''}`;
+      paintPick();
+      paintGroups();
+      paintTurns();
+    }
+    list.addEventListener('input', debounce(paintAll, 150));
+
+    body.append(cols(
+      panel('Participantes', list, row(dedupe, h('span', { class: 'spacer' }), countInfo),
+        h('p', { class: 'note', text: 'Un nombre por línea. Puedes pegar una columna copiada de Excel.' })),
+      h('div', { class: 'stack' },
+        panel('Qué hacer', mode, pickBox, groupsBox, turnsBox),
+        histPanel)));
+    paintAll();
+    paintMode();
+    return () => { if (spin) clearInterval(spin); };
   },
 });
 
