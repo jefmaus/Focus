@@ -548,7 +548,21 @@ td.pre { white-space: pre-wrap; }
 
 /* Firma: la zona es siempre papel blanco, también en tema oscuro, para ver la tinta como saldrá. */
 .sig-pad { position: relative; width: 100%; max-width: 760px; margin-inline: auto; overflow: hidden; background: #ffffff; border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: inset 0 1px 4px rgb(0 0 0 / .07); }
-.sig-canvas { position: relative; z-index: 1; display: block; width: 100%; aspect-ratio: 2 / 1; cursor: crosshair; touch-action: none; user-select: none; -webkit-user-select: none; }
+/* El cursor en cruz del sistema puede ser blanco o muy fino según el tema de Windows y perderse sobre el
+   papel: se usa uno propio, oscuro con borde blanco, que se ve sobre cualquier fondo. El hueco del
+   centro lo ocupa .sig-tip, el punto que marca dónde cae la tinta. */
+.sig-canvas {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg fill='none' stroke-linecap='round'%3E%3Cpath d='M16 2v7.5M16 22.5V30M2 16h7.5M22.5 16H30' stroke='%23fff' stroke-width='4.5'/%3E%3Cpath d='M16 2v7.5M16 22.5V30M2 16h7.5M22.5 16H30' stroke='%23111' stroke-width='1.8'/%3E%3C/g%3E%3C/svg%3E") 16 16, crosshair;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.sig-tip { position: absolute; left: 0; top: 0; z-index: 2; border-radius: 50%; box-shadow: 0 0 0 1.5px #fff, 0 0 0 2.5px rgb(0 0 0 / .35); pointer-events: none; }
 .sig-line { position: absolute; left: 8%; right: 8%; top: 74%; border-top: 1.5px dashed #c4c1b8; }
 .sig-x { position: absolute; left: 8%; top: 74%; color: #a9a69d; font-size: 1.5rem; line-height: 1; transform: translateY(-115%); }
 .sig-hint { position: absolute; left: 0; right: 0; top: calc(74% + 8px); color: #9a978e; font-size: .8125rem; text-align: center; transition: opacity .2s ease; }
@@ -3739,6 +3753,8 @@ tool({
       h('span', { class: 'sig-line', 'aria-hidden': 'true' }),
       h('span', { class: 'sig-hint', 'aria-hidden': 'true', text: 'Firma aquí' }),
       canvas);
+    const tip = h('span', { class: 'sig-tip', 'aria-hidden': 'true', hidden: true });
+    pad.append(tip);
 
     const inkSeg = seg(ctx, 'ink', [['black', 'Negro'], ['blue', 'Azul tinta'], ['custom', 'Otro']], 'black', () => paintInk());
     const custom = h('input', { type: 'color', class: 'input', 'aria-label': 'Color de la tinta' });
@@ -3791,7 +3807,25 @@ tool({
         sigRound(clamp((ev.clientY - r.top) / r.width, 0, 1 / SIG_RATIO)),
         Math.round(f * 100) / 100);
     };
+    // Punto guía: sigue al ratón o al lápiz dentro de la zona, con el color y el grosor de la tinta,
+    // para que siempre se vea dónde empieza el trazo. Con el dedo no hace falta: no hay puntero.
+    const moveTip = e => {
+      if (e.pointerType === 'touch') { tip.hidden = true; return; }
+      const r = canvas.getBoundingClientRect();
+      if (!r.width) return;
+      const size = Math.max(6, thickV() * r.width / SIG_REF);
+      tip.style.width = `${size}px`;
+      tip.style.height = `${size}px`;
+      tip.style.background = ink();
+      tip.style.transform = `translate(${e.clientX - r.left + canvas.offsetLeft - size / 2}px, ${e.clientY - r.top + canvas.offsetTop - size / 2}px)`;
+      tip.hidden = false;
+    };
+    canvas.addEventListener('pointerenter', moveTip);
+    canvas.addEventListener('pointermove', moveTip);
+    canvas.addEventListener('pointerleave', () => { tip.hidden = true; });
+
     canvas.addEventListener('pointerdown', e => {
+      moveTip(e);
       if (cur || (e.pointerType === 'mouse' && e.button !== 0)) return;
       e.preventDefault();
       try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* el puntero ya se soltó */ }
