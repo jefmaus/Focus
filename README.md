@@ -172,9 +172,10 @@ Ten en cuenta estos límites:
 
 | Grupo | Herramientas |
 | --- | --- |
-| Texto | Contador de texto · Mayúsculas y líneas · Comparar textos · Lorem ipsum |
-| Codificación y seguridad | Imagen ↔ Base64 · Codificar / decodificar (Base64, URL, HTML, Unicode, hex, binario) · Decodificar JWT · Hashes (MD5, SHA-1/256/384/512, HMAC) |
-| Datos y código | JSON (formatear, minificar, validar, a YAML, JSON ↔ CSV) · Probador de regex · Bases numéricas · Expresiones cron |
+| Texto | Contador de texto · Mayúsculas y líneas · Comparar textos · Lorem ipsum · Markdown (vista previa en vivo, copiar HTML, guardar `.md` y `.html`) |
+| Imágenes | Redimensionar · Recortar · Ajustes y filtros · Marca de agua · Convertir formato (PNG, JPEG, WebP, AVIF si el navegador lo admite, BMP e ICO) · Crear .ico · Comprimir imagen · Paleta de una imagen · Metadatos EXIF · Imagen ↔ Base64 |
+| Codificación y seguridad | Codificar / decodificar (Base64, URL, HTML, Unicode, hex, binario) · Decodificar JWT · Hashes (MD5, SHA-1/256/384/512, HMAC) |
+| Datos y código | JSON (formatear, minificar, validar, a YAML, JSON ↔ CSV) · Formatear SQL · Visor HTML (pega o abre una página y mírala funcionando, con consola y tamaños de móvil, tablet y escritorio) · Probador de regex · Bases numéricas · Expresiones cron |
 | Generadores | UUID v4/v7 y contraseñas · Código QR (PNG y SVG) |
 | Tiempo y color | Timestamp y fechas · Colores (HEX/RGB/HSL y contraste WCAG) |
 
@@ -183,8 +184,11 @@ Ten en cuenta:
 - **Todo funciona sin conexión:** los archivos, imágenes y textos se procesan en tu navegador y no se envían a ningún lugar.
 - **Los tokens son aproximados:** se estiman a partir de los caracteres y las palabras. El número exacto depende del tokenizador de cada modelo.
 - **El JWT no se verifica:** la herramienta solo lee el header y el payload, no comprueba la firma.
-- **Guardar archivos:** en Chrome y Edge, los botones **Guardar** (imagen, `.txt`, JSON y QR en PNG o SVG) abren la ventana **Guardar como** y el botón queda en «Guardando…» hasta que el archivo se escribe. En otros navegadores se usa la descarga normal: el botón se bloquea 20 s y el mismo archivo pedido otra vez en menos de 30 s se ignora, para no bajar copias.
-- Cada herramienta recuerda lo último que escribiste en ella, en `localStorage`.
+- **Las herramientas de imagen comparten la imagen abierta:** ábrela una vez (soltándola, eligiéndola o pegándola con `Ctrl+V`) y pasa de una a otra sin volver a cargarla. Redimensionar, Recortar, Ajustes y filtros, Marca de agua, Convertir formato y Crear .ico son pestañas del mismo editor, así que los cambios se suman: el recuadro **Resultado** muestra cuáles están activos y se pueden quitar uno a uno. La vista previa trabaja sobre una copia reducida; al guardar se procesa la imagen a tamaño real. La imagen solo vive en memoria: al recargar la página hay que abrirla de nuevo.
+- **Quitar metadatos no recomprime:** en JPEG, PNG y WebP se eliminan los bloques EXIF, XMP, IPTC, comentarios y textos tal cual, sin tocar los píxeles. El perfil de color se conserva.
+- **El Visor HTML aísla la página:** se muestra en un marco sin acceso a la Navaja ni a tus datos. Los `console.log`, los errores y los `alert` salen en la consola de la herramienta; `localStorage` funciona, pero se borra en cada actualización. Las rutas relativas (imágenes, CSS o scripts junto a tu archivo) no se encuentran, porque la vista previa no sabe en qué carpeta está el archivo: usa direcciones completas o pon el contenido dentro del HTML. Con **Bloquear lo que venga de internet** no se carga nada de fuera.
+- **Guardar archivos:** en Chrome y Edge, los botones **Guardar** (imágenes, `.txt`, `.sql`, `.md`, `.html`, JSON y QR en PNG o SVG) abren la ventana **Guardar como** y el botón queda en «Guardando…» hasta que el archivo se escribe. En otros navegadores se usa la descarga normal: el botón se bloquea 20 s y el mismo archivo pedido otra vez en menos de 30 s se ignora, para no bajar copias.
+- Cada herramienta recuerda lo último que escribiste en ella, en `localStorage`. El botón **Limpiar todo**, arriba a la derecha de cada herramienta, borra ese texto, sus opciones y la imagen abierta (pide un segundo clic para confirmar). En las herramientas de imagen, **Quitar** cierra la imagen en todas ellas, y en la marca de agua también se puede quitar el logo.
 
 Para agregar una herramienta, añade una llamada a `tool({ ... })` en el script de `navaja.html`, con su `id`, `cat`, `name`, `desc`, `color`, `icon` y una función `render(body, ctx)`.
 
