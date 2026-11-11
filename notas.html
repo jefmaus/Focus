@@ -332,6 +332,9 @@ body.nb-sorting, body.nb-sorting * { cursor: grabbing !important; }
   position: fixed;
   z-index: 10;
   display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: min(420px, calc(100vw - 16px));
   padding: 4px 6px;
   background: var(--surface);
   border: 1px solid var(--line);
@@ -410,6 +413,25 @@ body.nb-sorting, body.nb-sorting * { cursor: grabbing !important; }
 .nb-mark-editor { width: min(300px, calc(100vw - 16px)); padding: 8px; }
 .nb-mark-editor label { color: var(--muted); font-size: .8125rem; }
 .nb-mark-actions { display: flex; justify-content: flex-end; gap: 6px; }
+/* Imagen enlazada: un distintivo en su esquina, por encima de todas las imágenes. */
+.nb-img-badges { position: absolute; top: 0; left: 0; right: 0; height: 0; pointer-events: none; }
+.nb-img-badge {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgb(0 0 0 / .25);
+}
+.nb-img-badge svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.nb-img-badge.nb-img-badge-broken { color: var(--muted); }
+.nb-img-tools .nb-tool:not(#imgDelete) { flex: none; font-weight: 600; }
+.nb-img-tools .nb-link-dest { margin-left: 4px; }
+.nb-img-tools .nb-tool:disabled { opacity: .45; cursor: default; background: none; }
 /* Burbuja de un enlace: adónde lleva, Abrir y Quitar enlace. */
 .nb-link-bubble {
   position: fixed;
@@ -608,12 +630,17 @@ body.nb-sorting, body.nb-sorting * { cursor: grabbing !important; }
         <div class="nb-checklist" id="checkView" hidden></div>
         <section class="nb-backlinks" id="backlinks" aria-label="Enlazado desde" hidden></section>
         <div class="nb-img-layer" id="imgLayer"></div>
+        <div class="nb-img-badges" id="imgBadges" aria-hidden="true"></div>
       </div>
 
       <div class="nb-img-frame" id="imgFrame" hidden>
         <span data-corner="nw"></span><span data-corner="ne"></span><span data-corner="sw"></span><span data-corner="se"></span>
       </div>
       <div class="nb-img-tools" id="imgTools" role="toolbar" aria-label="Imagen" hidden>
+        <span class="nb-link-dest" id="imgDest" hidden></span>
+        <button class="nb-tool" id="imgOpen" hidden>Abrir</button>
+        <button class="nb-tool" id="imgUnlink" title="Quita el enlace de la imagen" hidden>Quitar enlace</button>
+        <span class="nb-sep" id="imgSep" hidden></span>
         <button class="nb-tool" id="imgDelete" aria-label="Eliminar imagen" title="Eliminar (Supr)">
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.7 8.5h5.6l.7-8.5"/></svg>
         </button>
@@ -1728,10 +1755,12 @@ const IMAGE_NUDGE = 10;
 
 const scroller = $('pageScroller');
 const imgLayer = $('imgLayer');
+const imgBadges = $('imgBadges');
 const imgFrame = $('imgFrame');
 const imgTools = $('imgTools');
 const imageUrls = new Map();  // id → promesa de la URL temporal, solo de la página abierta
 const imageEntries = new WeakMap();  // elemento → su registro en page.images
+const imageBadges = new WeakMap();  // registro → el distintivo de su enlace
 let selectedImg = null;
 let imgGesture = false;
 let imageZ = 0;
@@ -1740,6 +1769,12 @@ const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const isNoteImage = node => node.nodeType === Node.ELEMENT_NODE && node.matches('img[data-img]');
 const imageFiles = data => [...data.files].filter(file => IMAGE_TYPES.has(file.type));
 
+// Una imagen puede llevar a otra página (y a uno de sus marcadores), igual que un enlace del texto.
+function cleanImageLink(link) {
+  if (!link || typeof link !== 'object' || !PAGE_ID.test(String(link.page || ''))) return null;
+  return PAGE_ID.test(String(link.mark || '')) ? { page: link.page, mark: link.mark } : { page: link.page };
+}
+
 // `x` y `size` son porcentajes del ancho de la hoja; `y` son píxeles desde su borde superior.
 function cleanEntries(list) {
   const entries = [];
@@ -1747,6 +1782,7 @@ function cleanEntries(list) {
     if (!item || !IMAGE_ID.test(item.id)) continue;
     const size = Number(item.size);
     const safeSize = Number.isFinite(size) ? clamp(size, 1, 100) : 40;
+    const link = cleanImageLink(item.link);
     entries.push({
       id: item.id,
       size: safeSize,
@@ -1754,6 +1790,7 @@ function cleanEntries(list) {
       y: Math.max(0, Number(item.y) || 0),
       w: validSide(item.w) || 0,
       h: validSide(item.h) || 0,
+      ...(link ? { link } : {}),
     });
   }
   return entries;
@@ -1859,6 +1896,8 @@ function copiedImages(html) {
     const height = validSide(img.getAttribute('height'));
     if (!IMAGE_ID.test(id) || !width || !height) continue;
     const entry = placeImage({ images: [...page.images, ...entries] }, { id, width, height });
+    const link = cleanImageLink({ page: img.getAttribute('data-link-page'), mark: img.getAttribute('data-link-mark') });
+    if (link) entry.link = link;
     entries.push(entry);
   }
   return entries;
@@ -1882,6 +1921,25 @@ function paintImage(img, entry) {
   img.style.left = `${entry.x}%`;
   img.style.top = `${entry.y}px`;
   img.style.width = `${entry.size}%`;
+  const badge = imageBadges.get(entry);
+  if (badge && badge.isConnected) paintBadge(badge, entry);
+}
+
+function paintBadge(badge, entry) {
+  badge.style.left = `calc(${entry.x}% + 6px)`;
+  badge.style.top = `${entry.y + 6}px`;
+}
+
+// Un distintivo por imagen enlazada de la página abierta; en gris si la página de destino ya no existe.
+function paintImageBadges() {
+  const page = currentPage();
+  imgBadges.replaceChildren(...(page ? page.images : []).filter(entry => entry.link).map(entry => {
+    const badge = h('span', { class: `nb-img-badge${pages.has(entry.link.page) ? '' : ' nb-img-badge-broken'}` });
+    badge.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 9.5l3-3M7.2 4.3l.9-.9a2.8 2.8 0 0 1 4 4l-.9.9M8.8 11.7l-.9.9a2.8 2.8 0 0 1-4-4l.9-.9"/></svg>';
+    imageBadges.set(entry, badge);
+    paintBadge(badge, entry);
+    return badge;
+  }));
 }
 
 function renderImages() {
@@ -1900,11 +1958,13 @@ function renderImages() {
         page.images.splice(page.images.indexOf(entry), 1);
         img.remove();
         markDirty();
+        paintImageBadges();
         updateImageFrame();
       }
     }).catch(() => {});
     return img;
   }));
+  paintImageBadges();
 }
 
 // Solo al arrancar: mientras la app está abierta, "Deshacer" aún puede devolver una imagen.
@@ -1926,6 +1986,7 @@ function selectImage(img) {
     selectedImg = img;
     if (img) {
       img.classList.add('nb-img-on');
+      hideBubble();  // su barra muestra lo mismo: nunca las dos a la vez
       // El foco sigue en el texto: pegar y escribir funcionan como siempre.
       body.focus({ preventScroll: true });
       const sel = getSelection();
@@ -1953,6 +2014,7 @@ function updateImageFrame() {
     clipPath: `inset(${Math.max(-12, area.top - rect.top)}px -12px ${Math.max(-12, rect.bottom - area.bottom)}px -12px)`,
   });
   if (imgTools.hidden) return;
+  paintImageTools(imageEntries.get(img));
   const tools = imgTools.getBoundingClientRect();
   // Encima o debajo, para no tapar la imagen ni sus tiradores; dentro solo si la imagen llena la hoja.
   const above = rect.top - tools.height - 12;
@@ -1962,6 +2024,50 @@ function updateImageFrame() {
     : Math.max(rect.top, area.top) + 12;
   imgTools.style.top = `${top}px`;
   imgTools.style.left = `${clamp(rect.left + rect.width / 2 - tools.width / 2, area.left + 4, Math.max(area.left + 4, area.right - tools.width - 4))}px`;
+}
+
+// Con una imagen enlazada elegida, su barra también deja abrir el destino o quitar el enlace.
+function paintImageTools(entry) {
+  const link = entry && entry.link;
+  $('imgDest').hidden = $('imgOpen').hidden = $('imgUnlink').hidden = $('imgSep').hidden = !link;
+  if (!link) return;
+  const { dest, target } = describeLink(link.page, link.mark);
+  $('imgDest').textContent = dest;
+  $('imgOpen').disabled = !target;
+}
+
+// Al enlazar o desenlazar una imagen solo cambian su registro y su distintivo.
+function afterImageLink() {
+  markDirty();
+  paintImageBadges();
+  updateImageFrame();
+}
+
+function linkImage(entry, target, mark) {
+  const page = currentPage();
+  if (!page || !page.images.includes(entry)) { toast('Esa imagen ya no está en la página'); return; }
+  entry.link = mark ? { page: target.id, mark: mark.id } : { page: target.id };
+  afterImageLink();
+  toast(`Imagen enlazada a ${linkLabel(target, mark)}`);
+}
+
+// Ctrl+Z no llega a las imágenes: el aviso trae su propio Deshacer.
+function unlinkImage(entry) {
+  const page = currentPage();
+  if (!page || !entry.link) return;
+  const link = entry.link;
+  delete entry.link;
+  afterImageLink();
+  toast('Enlace de la imagen quitado', 'Deshacer', () => {
+    if (!page.images.includes(entry) || entry.link) return;
+    entry.link = link;
+    if (currentPage() === page) {
+      afterImageLink();
+    } else if (pages.has(page.id)) {
+      page.updatedAt = Date.now();
+      putPage(page);
+    }
+  });
 }
 
 function deleteSelectedImage() {
@@ -1974,6 +2080,7 @@ function deleteSelectedImage() {
   selectImage(null);
   img.remove();
   markDirty();
+  paintImageBadges();
   toast('Imagen eliminada', 'Deshacer', () => {
     page.images.splice(Math.min(index, page.images.length), 0, entry);
     if (currentPage() === page) {
@@ -2165,15 +2272,26 @@ imgFrame.addEventListener('pointerdown', e => {
 });
 imgTools.addEventListener('mousedown', e => e.preventDefault());
 $('imgDelete').addEventListener('click', deleteSelectedImage);
+$('imgOpen').addEventListener('click', () => {
+  const entry = selectedImg && imageEntries.get(selectedImg);
+  if (entry && entry.link) goToPage(entry.link.page, true, entry.link.mark);
+});
+$('imgUnlink').addEventListener('click', () => {
+  const entry = selectedImg && imageEntries.get(selectedImg);
+  if (entry) unlinkImage(entry);
+});
 
+// La imagen sigue elegida mientras se enlaza: el botón de la barra y el buscador son para ella.
+const linkingImage = target => btnLink.contains(target) || linkPicker.contains(target);
 document.addEventListener('pointerdown', e => {
-  if (selectedImg && e.target !== selectedImg && !imgFrame.contains(e.target) && !imgTools.contains(e.target)) selectImage(null);
+  if (selectedImg && e.target !== selectedImg && !imgFrame.contains(e.target) && !imgTools.contains(e.target) && !linkingImage(e.target)) selectImage(null);
 }, true);
 document.addEventListener('focusin', e => {
-  if (selectedImg && e.target !== body && !imgTools.contains(e.target)) selectImage(null);
+  if (selectedImg && e.target !== body && !imgTools.contains(e.target) && !linkingImage(e.target)) selectImage(null);
 });
 document.addEventListener('keydown', e => {
-  if (!selectedImg || imgGesture || e.key === 'Tab' || ['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
+  // Con el buscador abierto, las flechas y las letras son suyas, no de la imagen.
+  if (!selectedImg || imgGesture || picker || e.key === 'Tab' || ['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
   const step = e.shiftKey ? 1 : IMAGE_NUDGE;
   const arrows = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
   if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -2195,7 +2313,8 @@ function copySelectedImage(e, cut) {
   if (!selectedImg) return;
   e.preventDefault();
   const entry = imageEntries.get(selectedImg);
-  e.clipboardData.setData('text/html', `<img data-img="${entry.id}" width="${entry.w}" height="${entry.h}">`);
+  const link = entry.link ? ` data-link-page="${entry.link.page}"${entry.link.mark ? ` data-link-mark="${entry.link.mark}"` : ''}` : '';
+  e.clipboardData.setData('text/html', `<img data-img="${entry.id}" width="${entry.w}" height="${entry.h}"${link}>`);
   if (cut) deleteSelectedImage();
 }
 document.addEventListener('copy', e => copySelectedImage(e, false));
@@ -2248,22 +2367,28 @@ function marksOf(page) {
 // Dentro de la misma página basta el nombre del marcador; desde otra, "Página › Marcador".
 const linkLabel = (page, mark) => !mark ? pageName(page) : page.id === ui.pageId ? mark.name : `${pageName(page)} › ${mark.name}`;
 
+// Adónde lleva un enlace, del texto o de una imagen, dicho para la burbuja.
+function describeLink(pageId, markId) {
+  const target = pages.get(pageId);
+  const mark = target && markId ? marksOf(target).find(m => m.id === markId) || null : null;
+  const lostMark = !!(target && markId && !mark);
+  const dest = !target ? 'Esta página ya no existe'
+    : mark ? `${pagePlace(target)} › ${mark.name}`
+    : lostMark ? `${pagePlace(target)} (el marcador ya no existe: se abrirá la página)`
+    : pagePlace(target);
+  return { target, mark, lostMark, dest };
+}
+
 // El enlace guarda solo ids: el texto que se ve es siempre el actual, salvo si el texto es propio.
 function paintLinks() {
   for (const link of body.querySelectorAll('a[data-page]')) {
-    const target = pages.get(link.dataset.page);
-    const markId = link.dataset.mark;
-    const mark = target && markId ? marksOf(target).find(m => m.id === markId) : null;
-    const lostMark = !!(target && markId && !mark);
+    const { target, mark, lostMark, dest } = describeLink(link.dataset.page, link.dataset.mark);
     link.contentEditable = 'false';
     link.classList.toggle('nb-link-broken', !target);
     link.classList.toggle('nb-link-nomark', lostMark);
     // Adónde lleva, para la burbuja. No va en `title`: su tooltip taparía la burbuja. Al guardar se descarta.
     link.removeAttribute('title');
-    link.dataset.dest = !target ? 'Esta página ya no existe'
-      : mark ? `${pagePlace(target)} › ${mark.name}`
-      : lostMark ? `${pagePlace(target)} (el marcador ya no existe: se abrirá la página)`
-      : pagePlace(target);
+    link.dataset.dest = dest;
     // Sin su marcador, el enlace lleva a la página: muestra su título. Si el marcador vuelve, vuelve su nombre.
     if (target && !link.hasAttribute('data-own')) {
       const label = linkLabel(target, mark);
@@ -2300,6 +2425,8 @@ function refreshLinks() {
   paintLinks();
   renderBacklinks();
   paintTrail();
+  paintImageBadges();
+  updateImageFrame();
 }
 
 // Abre la página aunque esté en otro cuaderno. `remember` deja el botón para volver; `markId` lleva al marcador.
@@ -2349,7 +2476,7 @@ function renderBacklinks() {
   const box = $('backlinks');
   const mark = page && `data-page="${page.id}"`;
   const from = page ? [...pages.values()]
-    .filter(p => p.id !== page.id && p.mode === 'text' && p.html.includes(mark))
+    .filter(p => p.id !== page.id && ((p.mode === 'text' && p.html.includes(mark)) || p.images.some(i => i.link && i.link.page === page.id)))
     .sort((a, b) => b.updatedAt - a.updatedAt) : [];
   box.hidden = !from.length;
   if (!from.length) { box.replaceChildren(); return; }
@@ -2500,6 +2627,7 @@ function openPicker(state) {
     return;
   }
   btnLink.setAttribute('aria-expanded', 'true');
+  linkSearch.placeholder = picker.image ? 'Enlazar la imagen a...' : 'Buscar página...';
   linkSearch.value = '';
   searchPicker();
   linkSearch.focus({ preventScroll: true });
@@ -2633,6 +2761,13 @@ function choosePicker(index) {
   if (!entry) return;
   if (picker.step === 'pages' && marksOf(entry.page).length) { enterMarks(entry.page); return; }
   const { page: target, mark } = entry;
+  if (picker.image) {
+    const image = picker.image;
+    closePicker();
+    linkImage(image, target, mark);
+    if (selectedImg) body.focus({ preventScroll: true });
+    return;
+  }
   let range = picker.range || null;
   if (picker.mode === 'inline') {
     const query = inlineQuery();
@@ -2660,11 +2795,15 @@ function choosePicker(index) {
 
 btnLink.addEventListener('click', () => {
   if (picker && picker.mode === 'button') {
-    const { range } = picker;
+    const { range, image } = picker;
     closePicker();
-    restoreSelection(range);
+    if (image) body.focus({ preventScroll: true });
+    else restoreSelection(range);
     return;
   }
+  // Con una imagen elegida, el enlace es para ella.
+  const entry = selectedImg && imageEntries.get(selectedImg);
+  if (entry) { openPicker({ mode: 'button', range: null, image: entry }); return; }
   const range = selectionRange();
   openPicker({ mode: 'button', range: range ? range.cloneRange() : null });
 });
@@ -2849,30 +2988,59 @@ window.addEventListener('resize', positionPicker);
 const linkBubble = $('linkBubble');
 const BUBBLE_SHOW_MS = 350;
 const BUBBLE_HIDE_MS = 250;  // margen para llevar el ratón del enlace a la burbuja
-let bubbleLink = null;
+let bubbleEl = null;  // el enlace o la imagen de la burbuja abierta
 let bubbleTimer = 0;
 let lastPointer = 'mouse';
 
-function showBubble(link) {
+// Lo que muestra la burbuja de un enlace del texto o de una imagen enlazada; null si no es ninguno.
+function bubbleInfo(el) {
+  if (!el || !el.isConnected) return null;
+  if (el.matches('a[data-page]')) {
+    return {
+      dest: el.dataset.dest || pageName({ title: el.textContent }),
+      page: el.dataset.page,
+      mark: el.dataset.mark,
+      broken: el.classList.contains('nb-link-broken'),
+      unlink: () => unlink(el),
+    };
+  }
+  const entry = isNoteImage(el) ? imageEntries.get(el) : null;
+  if (!entry || !entry.link) return null;
+  const { dest, target } = describeLink(entry.link.page, entry.link.mark);
+  return { dest, page: entry.link.page, mark: entry.link.mark, broken: !target, image: true, unlink: () => unlinkImage(entry) };
+}
+
+function showBubble(el) {
   clearTimeout(bubbleTimer);
-  if (!body.contains(link)) { hideBubble(); return; }
-  bubbleLink = link;
-  // paintLinks ya dejó en data-dest adónde lleva el enlace, o que la página no existe.
-  $('linkDest').textContent = link.dataset.dest || pageName({ title: link.textContent });
-  $('linkDest').title = $('linkDest').textContent;  // completo, por si no cabe
-  $('linkOpen').disabled = link.classList.contains('nb-link-broken');
+  const info = selectedImg ? null : bubbleInfo(el);
+  if (!info) { hideBubble(); return; }
+  bubbleEl = el;
+  $('linkDest').textContent = info.dest;
+  $('linkOpen').disabled = info.broken;
+  $('linkUnlink').title = info.image ? 'Quita el enlace de la imagen' : 'Quita el enlace y deja el texto';
   linkBubble.hidden = false;
   positionBubble();
 }
 
-// Encima de la primera línea del enlace (o debajo si no cabe); se va si el enlace sale de la vista.
+// Encima del enlace (de su primera línea) o de la imagen; debajo si no cabe. Se va si sale de la vista.
 function positionBubble() {
-  if (!bubbleLink) return;
-  if (!body.contains(bubbleLink)) { hideBubble(); return; }
-  const rect = bubbleLink.getClientRects()[0] || bubbleLink.getBoundingClientRect();
+  if (!bubbleEl) return;
+  if (!bubbleEl.isConnected) { hideBubble(); return; }
+  const rect = bubbleEl.getClientRects()[0] || bubbleEl.getBoundingClientRect();
   const view = scroller.getBoundingClientRect();
   if (rect.bottom < view.top || rect.top > view.bottom) { hideBubble(); return; }
   const box = linkBubble.getBoundingClientRect();
+  if (isNoteImage(bubbleEl)) {
+    // Donde sale la barra de la imagen elegida: al elegirla, una toma el sitio de la otra.
+    const above = rect.top - box.height - 12;
+    const below = rect.bottom + 12;
+    const top = above >= view.top + 4 ? above
+      : below + box.height <= view.bottom - 4 ? below
+      : Math.max(rect.top, view.top) + 12;
+    linkBubble.style.top = `${top}px`;
+    linkBubble.style.left = `${clamp(rect.left + rect.width / 2 - box.width / 2, view.left + 4, Math.max(view.left + 4, view.right - box.width - 4))}px`;
+    return;
+  }
   const above = rect.top - box.height - 6;
   const top = above >= Math.max(8, view.top) ? above : rect.bottom + 6;
   linkBubble.style.top = `${clamp(top, 8, Math.max(8, innerHeight - box.height - 8))}px`;
@@ -2882,8 +3050,8 @@ function positionBubble() {
 function hideBubble() {
   clearTimeout(bubbleTimer);
   bubbleTimer = 0;
-  if (!bubbleLink) return;
-  bubbleLink = null;
+  if (!bubbleEl) return;
+  bubbleEl = null;
   linkBubble.hidden = true;
 }
 
@@ -2913,26 +3081,31 @@ function unlink(link) {
   updateBar();
 }
 
-const bubbleLinkAt = target => {
-  const link = target && target.closest ? target.closest('a[data-page]') : null;
-  return link && body.contains(link) ? link : null;
-};
+// Al pasar el ratón: un enlace del texto o una imagen enlazada que no esté elegida
+// (la elegida ya muestra Abrir y Quitar enlace en su propia barra).
+function bubbleTargetAt(target) {
+  if (!target || !target.closest) return null;
+  const link = target.closest('a[data-page]');
+  if (link && body.contains(link)) return link;
+  const entry = isNoteImage(target) && imgLayer.contains(target) ? imageEntries.get(target) : null;
+  return entry && entry.link ? target : null;
+}
 
 body.addEventListener('pointerdown', e => { lastPointer = e.pointerType || 'mouse'; }, true);
-body.addEventListener('pointerover', e => {
-  if (e.pointerType === 'touch') return;
-  const link = bubbleLinkAt(e.target);
-  if (!link) return;
+scroller.addEventListener('pointerover', e => {
+  if (e.pointerType === 'touch' || imgGesture || selectedImg) return;
+  const el = bubbleTargetAt(e.target);
+  if (!el) return;
   clearTimeout(bubbleTimer);
-  if (link === bubbleLink) return;
+  if (el === bubbleEl) return;
   // Si ya había una burbuja abierta, pasa al otro enlace sin esperar.
-  bubbleTimer = setTimeout(() => showBubble(link), bubbleLink ? 0 : BUBBLE_SHOW_MS);
+  bubbleTimer = setTimeout(() => showBubble(el), bubbleEl ? 0 : BUBBLE_SHOW_MS);
 });
-body.addEventListener('pointerout', e => {
+scroller.addEventListener('pointerout', e => {
   if (e.pointerType === 'touch') return;
-  const link = bubbleLinkAt(e.target);
-  if (!link || link.contains(e.relatedTarget)) return;
-  if (bubbleLink) hideBubbleSoon();
+  const el = bubbleTargetAt(e.target);
+  if (!el || el.contains(e.relatedTarget)) return;
+  if (bubbleEl) hideBubbleSoon();
   else clearTimeout(bubbleTimer);
 });
 linkBubble.addEventListener('pointerenter', () => clearTimeout(bubbleTimer));
@@ -2940,13 +3113,18 @@ linkBubble.addEventListener('pointerleave', e => { if (e.pointerType !== 'touch'
 // Pulsar la burbuja no debe quitarle el foco al editor: el blur guardaría y movería el cursor.
 linkBubble.addEventListener('mousedown', e => e.preventDefault());
 $('linkOpen').addEventListener('click', () => {
-  const link = bubbleLink;
+  const info = bubbleInfo(bubbleEl);
   hideBubble();
-  if (link) goToPage(link.dataset.page, true, link.dataset.mark);
+  if (info && !info.broken) goToPage(info.page, true, info.mark);
 });
-$('linkUnlink').addEventListener('click', () => { if (bubbleLink) unlink(bubbleLink); });
+$('linkUnlink').addEventListener('click', () => {
+  const info = bubbleInfo(bubbleEl);
+  hideBubble();
+  if (info) info.unlink();
+});
+// Cualquier toque fuera de la burbuja la cierra; en táctil, el clic del enlace la vuelve a abrir.
 document.addEventListener('pointerdown', e => {
-  if (bubbleLink && !linkBubble.contains(e.target) && bubbleLinkAt(e.target) !== bubbleLink) hideBubble();
+  if (!linkBubble.contains(e.target)) hideBubble();
 }, true);
 body.addEventListener('keydown', () => hideBubble());
 scroller.addEventListener('scroll', positionBubble, { passive: true });

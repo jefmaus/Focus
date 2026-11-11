@@ -179,6 +179,7 @@ Desde cualquier página puedes enlazar otra, aunque esté en otro cuaderno, como
 - **Enlazado desde:** al pie de cada página se listan las páginas que la enlazan.
 - **Burbuja del enlace:** si dejas el ratón un momento sobre un enlace, aparece una burbuja que dice adónde lleva, con los botones **Abrir** y **Quitar enlace**. En el móvil, tocar el enlace muestra la burbuja en vez de abrirlo, y **Abrir** lleva a la página.
 - **Quitar el enlace y dejar el texto:** pulsa **Quitar enlace** en la burbuja. El texto se queda como texto normal. En los enlaces de título vivo, el que queda es el título de la página. `Ctrl+Z` devuelve el enlace.
+- **Enlazar una imagen:** haz clic en la imagen para elegirla y pulsa el botón de enlazar de la barra. Elige la página (y, si tiene, el marcador) en el mismo buscador. La imagen enlazada muestra un icono de cadena en su esquina. Al dejar el ratón sobre ella aparece la burbuja con **Abrir** y **Quitar enlace**. Con la imagen elegida, esos botones también están en su barra, que es como se hace en el móvil. Un clic en la imagen la elige para moverla o cambiarle el tamaño, no abre el enlace. Quitar el enlace de una imagen se deshace con **Deshacer** en el aviso, no con `Ctrl+Z`.
 - **Borrar un enlace:** se borra entero, con su texto, con `Retroceso` o `Supr`, y `Ctrl+Z` lo devuelve.
 - **Enlaces rotos:** si eliminas la página enlazada, el enlace se ve tachado y avisa al hacer clic. Si deshaces la eliminación, vuelve a funcionar.
 
