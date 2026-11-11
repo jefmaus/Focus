@@ -3637,8 +3637,61 @@ function sigDraw(c, strokes, scale, width, color) {
   }
 }
 
+// Suavizado: el trazo se vuelve a muestrear a pasos iguales a lo largo de su recorrido y pasa por
+// un filtro gaussiano, que quita el temblor fino del ratón. Cerca de los extremos el filtro se
+// estrecha, así el principio y el final quedan donde se pusieron y la punta sigue al cursor sin
+// retraso. Los puntos guardados no cambian: se calcula al dibujar, como el color y el grosor.
+// Cada punto suavizado es un promedio de puntos del trazo, así que no sale de su contorno.
+const SIG_STEP = 1.5 / SIG_REF;  // paso del remuestreo: 1,5 px de la zona de referencia
+const SIG_SMOOTH_PX = 1.2;       // ancho del filtro por cada nivel, en px de la zona de referencia
+const sigSmoothed = new WeakMap();
+
+function sigSmooth(s, level) {
+  if (!level || s.length < 9) return s;
+  const hit = sigSmoothed.get(s);
+  if (hit && hit.level === level && hit.len === s.length) return hit.out;
+  // Remuestreo: el ratón manda puntos muy juntos al ir lento y separados al ir rápido.
+  const P = [s[0], s[1], s[2]];
+  let carry = 0; // recorrido desde la última muestra
+  for (let i = 3; i < s.length; i += 3) {
+    const ax = s[i - 3];
+    const ay = s[i - 2];
+    const af = s[i - 1];
+    const dx = s[i] - ax;
+    const dy = s[i + 1] - ay;
+    const df = s[i + 2] - af;
+    const len = Math.hypot(dx, dy);
+    if (!len) continue;
+    let t = SIG_STEP - carry;
+    for (; t <= len; t += SIG_STEP) P.push(ax + dx * t / len, ay + dy * t / len, af + df * t / len);
+    carry = len - (t - SIG_STEP);
+  }
+  if (carry > 1e-9) P.push(s[s.length - 3], s[s.length - 2], s[s.length - 1]);
+  const n = P.length / 3;
+  if (n < 3) return s;
+  const sigma = level * SIG_SMOOTH_PX / SIG_REF / SIG_STEP; // en muestras
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    if (i % 2 && i !== n - 1) continue; // una de cada dos basta para dibujar la curva
+    const sg = Math.min(sigma, Math.min(i, n - 1 - i) / 2);
+    if (sg < 0.3) { out.push(P[i * 3], P[i * 3 + 1], P[i * 3 + 2]); continue; }
+    const r = Math.ceil(sg * 3);
+    let x = 0; let y = 0; let f = 0; let sum = 0;
+    for (let k = Math.max(0, i - r); k <= Math.min(n - 1, i + r); k++) {
+      const w = Math.exp(-((k - i) ** 2) / (2 * sg * sg));
+      x += P[k * 3] * w;
+      y += P[k * 3 + 1] * w;
+      f += P[k * 3 + 2] * w;
+      sum += w;
+    }
+    out.push(x / sum, y / sum, f / sum);
+  }
+  sigSmoothed.set(s, { level, len: s.length, out });
+  return out;
+}
+
 // Medidas del PNG: solo la zona firmada, con un margen. Las curvas no salen de sus puntos de
-// control, así que basta con los puntos más medio grosor.
+// control (ni el suavizado del contorno del trazo), así que basta con los puntos más medio grosor.
 function sigLayout(strokes, thick) {
   let x0 = Infinity; let y0 = Infinity; let x1 = -Infinity; let y1 = -Infinity; let f = 0;
   for (const s of strokes) {
@@ -3657,7 +3710,7 @@ function sigLayout(strokes, thick) {
   };
 }
 
-function sigCanvas(strokes, thick, color, white) {
+function sigCanvas(strokes, thick, color, white, smooth) {
   const L = sigLayout(strokes, thick);
   const c = document.createElement('canvas');
   c.width = L.W;
@@ -3665,7 +3718,7 @@ function sigCanvas(strokes, thick, color, white) {
   const g = c.getContext('2d');
   if (white) { g.fillStyle = '#ffffff'; g.fillRect(0, 0, L.W, L.H); }
   g.translate(L.margin - L.x0 * SIG_SAVE_W, L.margin - L.y0 * SIG_SAVE_W);
-  sigDraw(g, strokes, SIG_SAVE_W, L.width, color);
+  sigDraw(g, strokes.map(s => sigSmooth(s, smooth)), SIG_SAVE_W, L.width, color);
   return c;
 }
 
@@ -3695,6 +3748,8 @@ tool({
     const paintInk = () => { custom.hidden = inkSeg.value !== 'custom'; schedule(); };
     const thick = slider('Grosor', ctx.get('thick', 3), 1, 10, 0.5, '', v => { ctx.set('thick', v); schedule(); paint(); }, 3);
     const thickV = () => Number(thick.input.value);
+    const smooth = slider('Suavizado', ctx.get('smooth', 5), 0, 10, 1, '', v => { ctx.set('smooth', v); schedule(); }, 5);
+    const smoothV = () => Number(smooth.input.value);
     const natural = check(ctx, 'natural', 'Trazo natural', true);
     const white = check(ctx, 'white', 'Fondo blanco', false, () => paint());
 
@@ -3709,7 +3764,9 @@ tool({
       if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
       const g = canvas.getContext('2d');
       g.clearRect(0, 0, W, H);
-      sigDraw(g, cur && cur.s.length ? [...strokes, cur.s] : strokes, W, thickV() * W / SIG_REF, ink());
+      const level = smoothV();
+      const all = cur && cur.s.length ? [...strokes, cur.s] : strokes;
+      sigDraw(g, all.map(s => sigSmooth(s, level)), W, thickV() * W / SIG_REF, ink());
     }
 
     // Cada punto nuevo: con lápiz, el grosor sigue la presión; con ratón o dedo, y «Trazo natural»,
@@ -3801,7 +3858,7 @@ tool({
     const undoBtn = btn('Deshacer', doUndo, { icon: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>', small: true });
     const redoBtn = btn('Rehacer', doRedo, { icon: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>', small: true });
     const clearBtn = btn('Borrar firma', doClear, { icon: 'clear', small: true });
-    const png = () => canvasBlob(sigCanvas(strokes, thickV(), ink(), white.input.checked), 'image/png');
+    const png = () => canvasBlob(sigCanvas(strokes, thickV(), ink(), white.input.checked, smoothV()), 'image/png');
     const saveBtn = downloadBtn('Guardar PNG', async () => (strokes.length ? { name: 'firma.png', data: await png() } : null), { primary: true });
     const copyImg = btn('Copiar imagen', async () => {
       if (!strokes.length) return;
@@ -3844,6 +3901,7 @@ tool({
       panel('Opciones',
         fieldGroup('Color de la tinta', h('div', { class: 'row' }, inkSeg, custom)),
         thick,
+        h('div', { class: 'field' }, smooth, h('small', { class: 'note', text: 'Pule el temblor del ratón para que la línea quede pareja. Cambia toda la firma, también lo ya dibujado; en 0 queda tal cual la trazaste.' })),
         h('div', { class: 'field' }, natural, h('small', { class: 'note', text: 'Más fino cuando vas rápido, como con un bolígrafo. Cambia los trazos que hagas desde ahora. Con lápiz, el grosor sigue la presión.' })),
         h('div', { class: 'field' }, white, h('small', { class: 'note', text: 'Para los programas que no aceptan transparencia. Sin él, la firma queda sobre el fondo de tu documento.' }))),
       h('div', { class: 'stack' },
