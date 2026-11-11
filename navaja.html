@@ -527,6 +527,14 @@ td.pre { white-space: pre-wrap; }
 .cl-sel .img-name { flex: 1 1 200px; }
 .cl-sel .slider { flex: 1 1 180px; }
 
+/* Firma: la zona es siempre papel blanco, también en tema oscuro, para ver la tinta como saldrá. */
+.sig-pad { position: relative; width: 100%; max-width: 760px; margin-inline: auto; overflow: hidden; background: #ffffff; border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: inset 0 1px 4px rgb(0 0 0 / .07); }
+.sig-canvas { position: relative; z-index: 1; display: block; width: 100%; aspect-ratio: 2 / 1; cursor: crosshair; touch-action: none; user-select: none; -webkit-user-select: none; }
+.sig-line { position: absolute; left: 8%; right: 8%; top: 74%; border-top: 1.5px dashed #c4c1b8; }
+.sig-x { position: absolute; left: 8%; top: 74%; color: #a9a69d; font-size: 1.5rem; line-height: 1; transform: translateY(-115%); }
+.sig-hint { position: absolute; left: 0; right: 0; top: calc(74% + 8px); color: #9a978e; font-size: .8125rem; text-align: center; transition: opacity .2s ease; }
+.sig-pad.inked .sig-hint { opacity: 0; }
+
 /* SQL */
 .sql-out { min-height: 220px; white-space: pre; overflow-wrap: normal; tab-size: 4; }
 .sq-k { color: #a142f4; font-weight: 600; } .sq-f { color: #1a73e8; } .sq-s { color: #188038; } .sq-n { color: #e8710a; } .sq-i { color: #c5221f; } .sq-c { color: var(--muted); font-style: italic; }
@@ -3563,6 +3571,273 @@ tool({
       document.removeEventListener('dragleave', onDragLeave);
       document.removeEventListener('drop', onDrop);
       document.removeEventListener('paste', onPaste);
+    };
+  },
+});
+
+/* ---------- Firma a mano ----------
+   Cada trazo es una lista plana [x, y, f, x, y, f, …]. x e y van de 0 a 1 respecto al ancho de la
+   zona, así la firma se ve igual con cualquier tamaño de ventana, y f multiplica el grosor elegido
+   según la presión del lápiz o la velocidad del trazo. El color y el grosor valen para toda la firma. */
+
+const SIG_RATIO = 2;      // la zona para firmar es el doble de ancha que de alta
+const SIG_REF = 600;      // con este ancho de zona, el grosor elegido se ve en píxeles
+const SIG_SAVE_W = 1500;  // píxeles por ancho de zona al guardar
+const SIG_INK = { black: '#141414', blue: '#1f3c99' };
+const sigRound = v => Math.round(v * 10000) / 10000;
+
+function sigDraw(c, strokes, scale, width, color) {
+  c.fillStyle = color;
+  c.strokeStyle = color;
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
+  for (const s of strokes) {
+    const n = s.length / 3;
+    const X = i => s[i * 3] * scale;
+    const Y = i => s[i * 3 + 1] * scale;
+    if (n === 1) {
+      c.beginPath();
+      c.arc(X(0), Y(0), Math.max(0.5, s[2] * width / 2), 0, Math.PI * 2);
+      c.fill();
+      continue;
+    }
+    // Curvas entre los puntos medios: cada punto hace de control y el trazo sale suave.
+    let sx = X(0);
+    let sy = Y(0);
+    for (let i = 1; i < n; i++) {
+      const ex = i < n - 1 ? (X(i) + X(i + 1)) / 2 : X(i);
+      const ey = i < n - 1 ? (Y(i) + Y(i + 1)) / 2 : Y(i);
+      c.beginPath();
+      c.moveTo(sx, sy);
+      c.quadraticCurveTo(X(i), Y(i), ex, ey);
+      c.lineWidth = Math.max(0.5, s[i * 3 + 2] * width);
+      c.stroke();
+      sx = ex;
+      sy = ey;
+    }
+  }
+}
+
+// Medidas del PNG: solo la zona firmada, con un margen. Las curvas no salen de sus puntos de
+// control, así que basta con los puntos más medio grosor.
+function sigLayout(strokes, thick) {
+  let x0 = Infinity; let y0 = Infinity; let x1 = -Infinity; let y1 = -Infinity; let f = 0;
+  for (const s of strokes) {
+    for (let i = 0; i < s.length; i += 3) {
+      x0 = Math.min(x0, s[i]); x1 = Math.max(x1, s[i]);
+      y0 = Math.min(y0, s[i + 1]); y1 = Math.max(y1, s[i + 1]);
+      f = Math.max(f, s[i + 2]);
+    }
+  }
+  const width = thick * SIG_SAVE_W / SIG_REF;
+  const margin = Math.ceil(f * width / 2 + 0.02 * SIG_SAVE_W);
+  return {
+    width, margin, x0, y0,
+    W: Math.ceil((x1 - x0) * SIG_SAVE_W) + margin * 2,
+    H: Math.ceil((y1 - y0) * SIG_SAVE_W) + margin * 2,
+  };
+}
+
+function sigCanvas(strokes, thick, color, white) {
+  const L = sigLayout(strokes, thick);
+  const c = document.createElement('canvas');
+  c.width = L.W;
+  c.height = L.H;
+  const g = c.getContext('2d');
+  if (white) { g.fillStyle = '#ffffff'; g.fillRect(0, 0, L.W, L.H); }
+  g.translate(L.margin - L.x0 * SIG_SAVE_W, L.margin - L.y0 * SIG_SAVE_W);
+  sigDraw(g, strokes, SIG_SAVE_W, L.width, color);
+  return c;
+}
+
+tool({
+  id: 'firma', cat: 'imagenes', name: 'Firma a mano', color: '#283593',
+  desc: 'Dibuja tu firma con el ratón, el lápiz o el dedo y guárdala como PNG transparente.',
+  keywords: 'firma firmar dibujar mano manuscrita rubrica autografo png transparente documento contrato trazo lapiz',
+  icon: '<path d="M3 16c2-.5 3.5-4 5-7.5.8-1.9 2.6-1.4 2 .8-.8 3-2.2 6.5-.8 6.7 1.2.2 2.3-3 3.6-3 1.1 0 .7 2 1.7 2 .9 0 1.7-.8 3.5-1"/><path d="M4 21h16"/>',
+  render(body, ctx) {
+    let strokes = (ctx.get('strokes', []) || []).filter(s => Array.isArray(s) && s.length >= 3 && s.length % 3 === 0 && s.every(Number.isFinite));
+    const undo = [];
+    const redo = [];
+    let cur = null; // trazo en curso
+
+    const canvas = h('canvas', { class: 'sig-canvas', role: 'img', 'aria-label': 'Zona para firmar: dibuja tu firma con el ratón, el lápiz o el dedo' });
+    const pad = h('div', { class: 'sig-pad' },
+      h('span', { class: 'sig-x', 'aria-hidden': 'true', text: '×' }),
+      h('span', { class: 'sig-line', 'aria-hidden': 'true' }),
+      h('span', { class: 'sig-hint', 'aria-hidden': 'true', text: 'Firma aquí' }),
+      canvas);
+
+    const inkSeg = seg(ctx, 'ink', [['black', 'Negro'], ['blue', 'Azul tinta'], ['custom', 'Otro']], 'black', () => paintInk());
+    const custom = h('input', { type: 'color', class: 'input', 'aria-label': 'Color de la tinta' });
+    custom.value = ctx.get('custom', '#7b1f2b');
+    custom.addEventListener('input', () => { ctx.set('custom', custom.value); schedule(); });
+    const ink = () => (inkSeg.value === 'custom' ? custom.value : SIG_INK[inkSeg.value]);
+    const paintInk = () => { custom.hidden = inkSeg.value !== 'custom'; schedule(); };
+    const thick = slider('Grosor', ctx.get('thick', 3), 1, 10, 0.5, '', v => { ctx.set('thick', v); schedule(); paint(); }, 3);
+    const thickV = () => Number(thick.input.value);
+    const natural = check(ctx, 'natural', 'Trazo natural', true);
+    const white = check(ctx, 'white', 'Fondo blanco', false, () => paint());
+
+    let frame = 0;
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(draw); };
+    function draw() {
+      frame = 0;
+      const r = canvas.getBoundingClientRect();
+      if (!r.width) return;
+      const W = Math.round(r.width * (window.devicePixelRatio || 1));
+      const H = Math.round(W / SIG_RATIO);
+      if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+      const g = canvas.getContext('2d');
+      g.clearRect(0, 0, W, H);
+      sigDraw(g, cur && cur.s.length ? [...strokes, cur.s] : strokes, W, thickV() * W / SIG_REF, ink());
+    }
+
+    // Cada punto nuevo: con lápiz, el grosor sigue la presión; con ratón o dedo, y «Trazo natural»,
+    // se afina cuando el trazo va rápido. Los dos cambian poco a poco para que no dé saltos.
+    const addPoint = ev => {
+      const r = canvas.getBoundingClientRect();
+      if (!r.width) return;
+      const pen = ev.pointerType === 'pen' && ev.pressure > 0;
+      let f = 1;
+      if (cur.s.length) {
+        const d = Math.hypot(ev.clientX - cur.cx, ev.clientY - cur.cy);
+        if (d < 1.5) return;
+        if (pen) f = cur.f * 0.5 + (0.35 + ev.pressure * 1.3) * 0.5;
+        else if (natural.input.checked) {
+          cur.v = cur.v * 0.3 + d / Math.max(1, ev.timeStamp - cur.t) * 0.7;
+          f = cur.f * 0.6 + clamp(1.45 - cur.v * 0.35, 0.5, 1.45) * 0.4;
+        }
+      } else if (pen) f = 0.35 + ev.pressure * 1.3;
+      Object.assign(cur, { cx: ev.clientX, cy: ev.clientY, t: ev.timeStamp, f });
+      cur.s.push(
+        sigRound(clamp((ev.clientX - r.left) / r.width, 0, 1)),
+        sigRound(clamp((ev.clientY - r.top) / r.width, 0, 1 / SIG_RATIO)),
+        Math.round(f * 100) / 100);
+    };
+    canvas.addEventListener('pointerdown', e => {
+      if (cur || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      e.preventDefault();
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* el puntero ya se soltó */ }
+      cur = { s: [], id: e.pointerId, cx: 0, cy: 0, t: 0, v: 0, f: 1 };
+      addPoint(e);
+      pad.classList.add('inked');
+      schedule();
+    });
+    canvas.addEventListener('pointermove', e => {
+      if (!cur || e.pointerId !== cur.id) return;
+      const list = typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : [];
+      for (const ev of list.length ? list : [e]) addPoint(ev);
+      schedule();
+    });
+    const finish = e => {
+      if (!cur || e.pointerId !== cur.id) return;
+      const s = cur.s;
+      cur = null;
+      if (s.length) {
+        strokes.push(s);
+        undo.push({ add: s });
+        redo.length = 0;
+      }
+      changed();
+    };
+    canvas.addEventListener('pointerup', finish);
+    canvas.addEventListener('pointercancel', finish);
+
+    // Deshacer también recupera una firma borrada. Tras recargar no hay historial, pero sigue
+    // quitando el último trazo.
+    const changed = () => { ctx.set('strokes', strokes); schedule(); paint(); };
+    const doUndo = () => {
+      const op = undo.pop() || (strokes.length ? { add: strokes[strokes.length - 1] } : null);
+      if (!op) return;
+      strokes = op.add ? strokes.filter(s => s !== op.add) : [...op.clear];
+      redo.push(op);
+      changed();
+    };
+    const doRedo = () => {
+      const op = redo.pop();
+      if (!op) return;
+      strokes = op.add ? [...strokes, op.add] : [];
+      undo.push(op);
+      changed();
+    };
+    const doClear = () => {
+      if (!strokes.length) return;
+      undo.push({ clear: strokes });
+      redo.length = 0;
+      strokes = [];
+      changed();
+      toast('Firma borrada. «Deshacer» la recupera.');
+    };
+    const onKey = e => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const el = document.activeElement;
+      if (el && (el.tagName === 'TEXTAREA' || el.isContentEditable || (el.tagName === 'INPUT' && /^(text|search|number|email|url|tel|password)$/.test(el.type)))) return;
+      const k = e.key.toLowerCase();
+      if (k === 'z' && !e.shiftKey) { e.preventDefault(); doUndo(); }
+      else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); doRedo(); }
+    };
+    document.addEventListener('keydown', onKey);
+
+    const undoBtn = btn('Deshacer', doUndo, { icon: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>', small: true });
+    const redoBtn = btn('Rehacer', doRedo, { icon: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>', small: true });
+    const clearBtn = btn('Borrar firma', doClear, { icon: 'clear', small: true });
+    const png = () => canvasBlob(sigCanvas(strokes, thickV(), ink(), white.input.checked), 'image/png');
+    const saveBtn = downloadBtn('Guardar PNG', async () => (strokes.length ? { name: 'firma.png', data: await png() } : null), { primary: true });
+    const copyImg = btn('Copiar imagen', async () => {
+      if (!strokes.length) return;
+      if (!navigator.clipboard || typeof ClipboardItem !== 'function') { toast('Este navegador no deja copiar imágenes: usa «Guardar PNG».'); return; }
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': png() })]);
+        toast('Firma copiada: pégala con Ctrl+V en tu documento');
+      } catch (e) {
+        toast('No se pudo copiar la imagen. Usa «Guardar PNG».');
+      }
+    }, { icon: 'copy' });
+    const status = statusLine();
+    const info = h('div', { class: 'chips' });
+
+    function paint() {
+      const has = strokes.length > 0;
+      pad.classList.toggle('inked', has);
+      undoBtn.disabled = !undo.length && !has;
+      redoBtn.disabled = !redo.length;
+      clearBtn.disabled = !has;
+      copyImg.disabled = !has;
+      saveBtn.setReady(has);
+      if (!has) {
+        status.show('Firma dentro del recuadro. Después podrás guardarla o copiarla para pegarla en un documento.');
+        info.replaceChildren();
+        return;
+      }
+      status.show('');
+      const L = sigLayout(strokes, thickV());
+      info.replaceChildren(
+        h('span', { class: 'chip', text: `${fmtNum(L.W)} × ${fmtNum(L.H)} px` }),
+        h('span', { class: 'chip', text: white.input.checked ? 'Fondo blanco' : 'Fondo transparente' }),
+        h('span', { class: 'chip', text: strokes.length === 1 ? '1 trazo' : `${strokes.length} trazos` }));
+    }
+
+    const resize = new ResizeObserver(schedule);
+    resize.observe(canvas);
+
+    body.append(h('div', { class: 'ed-grid' },
+      panel('Opciones',
+        fieldGroup('Color de la tinta', h('div', { class: 'row' }, inkSeg, custom)),
+        thick,
+        h('div', { class: 'field' }, natural, h('small', { class: 'note', text: 'Más fino cuando vas rápido, como con un bolígrafo. Cambia los trazos que hagas desde ahora. Con lápiz, el grosor sigue la presión.' })),
+        h('div', { class: 'field' }, white, h('small', { class: 'note', text: 'Para los programas que no aceptan transparencia. Sin él, la firma queda sobre el fondo de tu documento.' }))),
+      h('div', { class: 'stack' },
+        panel('Firma', pad,
+          h('div', { class: 'row' }, undoBtn, redoBtn, clearBtn,
+            h('span', { class: 'note', html: '<kbd>Ctrl</kbd>+<kbd>Z</kbd> deshace el último trazo.' }))),
+        panel('Resultado', status, info, h('div', { class: 'row' }, saveBtn, copyImg)))));
+    paintInk();
+    paint();
+    return () => {
+      cancelAnimationFrame(frame);
+      resize.disconnect();
+      document.removeEventListener('keydown', onKey);
     };
   },
 });
