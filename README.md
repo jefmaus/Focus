@@ -216,7 +216,7 @@ El enlace guarda el identificador de la página, no su posición, así que sigue
 | --- | --- |
 | Texto | Contador de texto · Mayúsculas y líneas · Comparar textos · Lorem ipsum · Markdown (vista previa en vivo, copiar HTML, guardar `.md` y `.html`) |
 | Imágenes | Redimensionar · Recortar · Ajustes y filtros · Marca de agua · Convertir formato (PNG, JPEG, WebP, AVIF si el navegador lo admite, BMP e ICO) · Crear .ico · Comprimir imagen · Collage (de 2 a 9 fotos) · Paleta de una imagen · Metadatos EXIF · Imagen ↔ Base64 |
-| Codificación y seguridad | Codificar / decodificar (Base64, URL, HTML, Unicode, hex, binario) · Decodificar JWT · Hashes (MD5, SHA-1/256/384/512, HMAC) |
+| Codificación y seguridad | Codificar / decodificar (Base64, Base62, URL, HTML, Unicode, hex, binario) · Decodificar JWT · Hashes (MD5, SHA-1/256/384/512, HMAC) |
 | Datos y código | JSON (formatear, minificar, validar, a YAML, JSON ↔ CSV) · Formatear SQL · Visor HTML (pega o abre una página y mírala funcionando, con consola y tamaños de móvil, tablet y escritorio) · Probador de regex · Bases numéricas · Expresiones cron |
 | Generadores | UUID v4/v7 y contraseñas · Código QR (PNG y SVG) |
 | Tiempo y color | Timestamp y fechas · Colores (HEX/RGB/HSL y contraste WCAG) |
@@ -226,6 +226,7 @@ Ten en cuenta:
 - **Todo funciona sin conexión:** los archivos, imágenes y textos se procesan en tu navegador y no se envían a ningún lugar.
 - **Los tokens son aproximados:** se estiman a partir de los caracteres y las palabras. El número exacto depende del tokenizador de cada modelo.
 - **El JWT no se verifica:** la herramienta solo lee el header y el payload, no comprueba la firma.
+- **Base62 usa el alfabeto `0-9`, `A-Z`, `a-z`:** es el más común. Algunas herramientas ponen las minúsculas antes que las mayúsculas, y con ellas el resultado no coincide.
 - **Las herramientas de imagen comparten la imagen abierta:** ábrela una vez (soltándola, eligiéndola o pegándola con `Ctrl+V`) y pasa de una a otra sin volver a cargarla. Redimensionar, Recortar, Ajustes y filtros, Marca de agua, Convertir formato y Crear .ico son pestañas del mismo editor, así que los cambios se suman: el recuadro **Resultado** muestra cuáles están activos y se pueden quitar uno a uno. La vista previa trabaja sobre una copia reducida; al guardar se procesa la imagen a tamaño real. La imagen solo vive en memoria: al recargar la página hay que abrirla de nuevo.
 - **Collage:** elige cuántas fotos quieres (de 2 a 9) y una de sus distribuciones, y carga las fotos con **Añadir fotos** (puedes elegir varias a la vez), soltándolas sobre el collage o pegándolas con `Ctrl+V`. La primera foto va al hueco más grande. Haz clic en un hueco para elegir su foto; arrastra la foto para encuadrarla y usa la rueda del ratón o el control **Zoom** para acercarla. Con las flechas ◀ ▶ la cambias de hueco. También eliges el formato (1:1, 4:5, 3:4, 4:3, 16:9 o 9:16), la separación, el redondeo de las esquinas, el color de fondo y el tamaño final. Los huecos vacíos salen del color de fondo. Las fotos no se mezclan con la imagen de las demás herramientas y, como ella, se pierden al recargar la página.
 - **Quitar metadatos no recomprime:** en JPEG, PNG y WebP se eliminan los bloques EXIF, XMP, IPTC, comentarios y textos tal cual, sin tocar los píxeles. El perfil de color se conserva.

@@ -4265,6 +4265,54 @@ tool({
 
 const utf8 = new TextDecoder('utf-8', { fatal: true });
 const htmlDecoder = document.createElement('textarea');
+
+// Base62 con el alfabeto habitual (0-9, A-Z, a-z): los bytes se leen como un número grande y se
+// pasan a base 62. Cada byte 0 del principio se escribe como un "0", para no perderlo al volver.
+// Se trabaja de 8 en 8 cifras (62^8 cabe exacto en un Number) para que los textos largos vayan rápido.
+const B62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+const B62_CHUNK = 8;
+const B62_BASE = BigInt(62 ** B62_CHUNK);
+
+function bytesToB62(bytes) {
+  let zeros = 0;
+  while (zeros < bytes.length && bytes[zeros] === 0) zeros++;
+  if (zeros === bytes.length) return '0'.repeat(zeros);
+  let n = BigInt(`0x${bytesToHex(bytes.subarray(zeros))}`);
+  const chunks = [];
+  while (n > 0n) {
+    const q = n / B62_BASE;
+    let r = Number(n - q * B62_BASE);
+    n = q;
+    let chunk = '';
+    for (let i = 0; i < B62_CHUNK; i++) { chunk = B62[r % 62] + chunk; r = Math.floor(r / 62); }
+    chunks.push(chunk);
+  }
+  return '0'.repeat(zeros) + chunks.reverse().join('').replace(/^0+/, '');
+}
+
+function b62ToBytes(text) {
+  const v = text.replace(/\s+/g, '');
+  const bad = v.match(/[^0-9A-Za-z]/u);
+  if (bad) throw new Error(`«${bad[0]}» no es un carácter de Base62 (solo 0-9, A-Z y a-z).`);
+  let zeros = 0;
+  while (zeros < v.length && v[zeros] === '0') zeros++;
+  const rest = v.slice(zeros);
+  let n = 0n;
+  // El primer trozo lleva las cifras que sobran; los demás, 8 cada uno.
+  for (let i = 0; i < rest.length;) {
+    const len = i === 0 ? rest.length % B62_CHUNK || B62_CHUNK : B62_CHUNK;
+    let chunk = 0;
+    for (let k = i; k < i + len; k++) chunk = chunk * 62 + B62.indexOf(rest[k]);
+    n = n * BigInt(62 ** len) + BigInt(chunk);
+    i += len;
+  }
+  let hex = rest ? n.toString(16) : '';
+  if (hex.length % 2) hex = `0${hex}`;
+  const out = new Uint8Array(zeros + hex.length / 2);
+  for (let i = 0; i < hex.length / 2; i++) out[zeros + i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  return out;
+}
+
 const CODECS = {
   b64: {
     label: 'Base64',
@@ -4279,6 +4327,11 @@ const CODECS = {
       while (v.length % 4) v += '=';
       return utf8.decode(b64ToBytes(v));
     },
+  },
+  b62: {
+    label: 'Base62',
+    encode: s => bytesToB62(enc.encode(s)),
+    decode: s => utf8.decode(b62ToBytes(s)),
   },
   url: { label: 'URL (componente)', encode: encodeURIComponent, decode: s => decodeURIComponent(s.replace(/\+/g, ' ')) },
   uri: { label: 'URL completa', encode: encodeURI, decode: decodeURI },
@@ -4315,8 +4368,8 @@ const CODECS = {
 
 tool({
   id: 'codificar', cat: 'codigo', name: 'Codificar / decodificar', color: '#f29900',
-  desc: 'Base64, URL, entidades HTML, escape Unicode, hexadecimal y binario.',
-  keywords: 'base64 url encode decode urlencode html entidades unicode escape hex binario codificar',
+  desc: 'Base64, Base62, URL, entidades HTML, escape Unicode, hexadecimal y binario.',
+  keywords: 'base64 base62 url encode decode urlencode html entidades unicode escape hex binario codificar',
   icon: '<path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/>',
   render(body, ctx) {
     const src = textarea(ctx, 'src', { rows: 9, placeholder: 'Texto de entrada' });
