@@ -142,12 +142,33 @@ Mi día te recuerda hacer una copia si llevas más de 30 días sin una.
 - **Antes de eliminar:** al eliminar un cuaderno o una página aparece una ventana de confirmación. Te dice qué se borra con él (sus páginas o sus imágenes) y cuántas páginas lo enlazan, porque esos enlaces quedarán rotos. Cancelar es la opción marcada, y `Esc` o un clic fuera de la ventana también cancelan. Un cuaderno eliminado no se puede recuperar. Una página sí: el aviso que aparece después ofrece **Deshacer**.
 - **Reordenar:** con mouse, arrastra un cuaderno o una página directamente. En táctil, mantenlo pulsado un momento y arrástralo, porque deslizar sin más desplaza la lista. Con el teclado, usa `Alt` + `↑` o `↓`. Mientras haya una búsqueda activa, las páginas no se pueden mover.
 - **Páginas:** tienen título, color y buscador por cuaderno. Se guardan solas mientras escribes.
-- **Formato:** una barra fija en la parte superior de la página ofrece negrita, cursiva, subrayado, estilos, color, resaltado, listas y quitar formato.
+- **Formato:** una barra fija en la parte superior de la página ofrece negrita, cursiva, subrayado, estilos, color, resaltado, listas, tablas y quitar formato.
+- **Tablas:** consulta [Tablas](#tablas).
 - **Checklist:** el botón del pie de la página convierte cada línea del texto en un elemento por marcar, y **Texto libre** lo devuelve a líneas. Si no cambiaste los elementos, el texto vuelve idéntico, con su formato; si los cambiaste, vuelve con una línea por elemento y sin formato. Las marcas se recuerdan y las imágenes se quedan donde están.
 - **Imágenes:** consulta [Imágenes en las notas](#imágenes-en-las-notas).
 - **Enlaces entre páginas:** consulta [Enlaces entre páginas](#enlaces-entre-páginas).
 
 Sus datos están separados de los de Mi día, en otra base de IndexedDB, y tienen su propia copia de seguridad con los botones **Exportar** e **Importar**. Importar **reemplaza todas las notas**, previa confirmación. La copia de Mi día no incluye las notas.
+
+### Tablas
+
+Pulsa el botón de la tabla en la barra y elige el tamaño en la rejilla, hasta 10 columnas por 8 filas. Con el teclado, recorre la rejilla con las flechas y pulsa `Enter`. La tabla se inserta donde está el cursor, ocupa el ancho de la hoja con columnas iguales (luego puedes cambiarlo) y, si no hay nada debajo, deja una línea vacía para seguir escribiendo.
+
+- **Escribir:** `Tab` pasa a la celda siguiente y `Mayús` + `Tab` a la anterior. `Tab` en la última celda agrega una fila. `Enter` hace un salto de línea dentro de la celda.
+- **Filas y columnas:** las opciones de la tabla están en tres sitios. Con clic derecho en una celda aparecen todas. Con el cursor en una tabla salen dos asas: la de la izquierda abre las opciones de esa fila y la de arriba las de esa columna. El botón de la tabla en la barra trae todas, y con el cursor en una tabla aparece activo. Desde ahí puedes insertar, subir o bajar filas, insertar o mover columnas, y eliminar la fila, la columna o la tabla. Con clic derecho y `Mayús`, o con texto seleccionado, sale el menú normal del navegador.
+- **Atajos:** `Ctrl+Enter` agrega una fila debajo. `Ctrl+Mayús+Retroceso` elimina la fila del cursor.
+- **Ancho:** arrastra el borde entre dos columnas para repartir el ancho entre ellas. Arrastra el borde derecho para hacer más angosta toda la tabla, desde el 15 % hasta el ancho completo de la hoja; mientras arrastras ves el porcentaje. `Esc` cancela el arrastre. Doble clic en un borde interior vuelve a dejar las columnas iguales, y doble clic en el borde derecho devuelve el ancho completo. El menú también trae **Igualar ancho de columnas** y **Ancho completo**. Al insertar o eliminar una columna, las demás se reparten el espacio.
+- **Ordenar y alinear:** desde el menú de una columna puedes ordenar las filas de A a Z o de Z a A. El encabezado se queda arriba y las celdas vacías van al final. Si la columna solo tiene cifras, se ordena como números y entiende formatos como `1.200,50`. **Alinear** pone la columna a la izquierda, al centro o a la derecha.
+- **Fila de encabezado:** la opción del menú resalta la primera fila. Al desactivarla, todas las celdas vuelven a ser normales.
+- **Deshacer:** `Ctrl+Z` deshace la tabla insertada y cada cambio de filas, columnas, encabezado, ancho, orden o alineación. Al eliminar la tabla, el aviso también ofrece **Deshacer**.
+- **Líneas alrededor de la tabla:** si la tabla está al principio de la página, `Enter` al inicio de la primera celda abre una línea encima. `Retroceso` al inicio de la línea que sigue a una tabla lleva el cursor a la última celda sin quitarle el formato a esa línea. Si la línea está vacía y no es la última de la página, además la borra.
+- **Pegar:** una tabla copiada de Excel, Word, Google Docs o una web se pega como tabla, sin sus estilos. Las celdas combinadas se separan y su contenido queda en la primera. Una tabla pegada dentro de una celda se reduce a texto, porque no hay tablas dentro de tablas.
+- **Marcadores:** una celda puede llevar un marcador. La banderita aparece dentro de la celda.
+
+Ten en cuenta:
+
+- El ancho se cambia arrastrando con el mouse o el lápiz. En táctil usa **Igualar ancho de columnas** o **Ancho completo** del menú.
+- En modo checklist, cada fila es un elemento, con sus celdas separadas por ` · `. Si cambias la lista y vuelves a **Texto libre**, la tabla se pierde igual que el formato.
 
 ### Imágenes en las notas
 

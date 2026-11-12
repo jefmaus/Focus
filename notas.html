@@ -230,6 +230,20 @@ body.nb-sorting, body.nb-sorting * { cursor: grabbing !important; }
 .nb-body h3 { font-size: 1.125rem; line-height: 1.3; margin: .6em 0 .3em; }
 .nb-body h2:first-child, .nb-body h3:first-child { margin-top: 0; }
 .nb-body ul, .nb-body ol { margin: 0 0 .5em; padding-left: 1.6em; }
+/* Tabla: ocupa el ancho de la hoja con columnas iguales, así no salta mientras escribes.
+   Sus tiradores le cambian el ancho (style="width: %") y el de cada columna (<colgroup>). */
+.nb-body table { width: 100%; table-layout: fixed; border-collapse: collapse; margin: 0 0 .75em; }
+.nb-body td, .nb-body th {
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--line) 70%, var(--muted));
+  vertical-align: top;
+  text-align: left;
+}
+.nb-body th { background: var(--surface-2); font-weight: 600; }
+.nb-body :is(td, th)[data-align="center"] { text-align: center; }
+.nb-body :is(td, th)[data-align="right"] { text-align: right; }
+.nb-body :is(td, th) > :last-child { margin-bottom: 0; }
+.nb-body :is(td, th) > :is(h2, h3):first-child { margin-top: 0; }
 .nb-body::selection, .nb-body *::selection, .nb-title::selection { background: var(--selection); }
 /* Enlace a otra página: una pieza que se borra entera y que con un clic te lleva. */
 .nb-body a[data-page] {
@@ -273,6 +287,11 @@ body.nb-sorting, body.nb-sorting * { cursor: grabbing !important; }
   mask: var(--mark-icon) center / contain no-repeat;
 }
 .nb-body li[data-mark-id]::before, .nb-body li [data-mark-id]::before { left: calc(-1.6em - clamp(16px, 3vw, 32px) + 3px); }
+/* En una tabla, la banderita va en el margen interior de la celda, sin tapar la de al lado. */
+.nb-body :is(td, th)[data-mark-id] { padding-left: 20px; }
+.nb-body :is(td, th)[data-mark-id]::before { left: 6px; top: calc(6px + .3em); width: 8px; height: 10px; }
+.nb-body :is(td, th) [data-mark-id]::before { left: -9px; width: 8px; height: 10px; }
+.nb-body :is(td, th) li[data-mark-id]::before, .nb-body :is(td, th) li [data-mark-id]::before { left: calc(-1.6em - 9px); }
 @keyframes nb-mark-flash {
   0%, 35% { background-color: var(--accent-soft); box-shadow: 0 0 0 6px var(--accent-soft); }
   100% { background-color: transparent; box-shadow: 0 0 0 6px transparent; }
@@ -386,6 +405,92 @@ body.nb-sorting, body.nb-sorting * { cursor: grabbing !important; }
 }
 .nb-menu button:hover { background: var(--surface-2); }
 .nb-swatch { width: 22px; text-align: center; font-weight: 700; border-radius: 4px; }
+.nb-menu hr { width: 100%; height: 1px; margin: 4px 0; border: 0; background: var(--line); }
+.nb-menu button.danger:hover { color: var(--over); background: var(--over-soft); }
+/* Con el cursor en una tabla, su botón se ve activo: su menú trae las opciones de esa tabla. */
+.nb-tool.nb-tool-on { background: var(--accent-soft); color: var(--accent); }
+.nb-menu-box {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--muted);
+  border-radius: 4px;
+  font-size: .6875rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.nb-menu [aria-pressed="true"] .nb-menu-box { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.nb-table-menu[data-mode="insert"] { min-width: 0; padding: 8px; }
+.nb-table-menu[data-mode="edit"] { white-space: nowrap; }
+.nb-table-grid { --pick: 18px; display: grid; gap: 3px; }
+.nb-menu .nb-table-grid button {
+  width: var(--pick);
+  height: var(--pick);
+  min-height: 0;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+}
+.nb-menu .nb-table-grid button.on { background: var(--accent-soft); border-color: var(--accent); }
+.nb-table-size { margin-top: 6px; color: var(--muted); font-size: .8125rem; text-align: center; }
+.nb-table-menu[data-mode="edit"] { max-height: calc(100vh - 160px); overflow-y: auto; }
+.nb-menu button:disabled { opacity: .4; cursor: default; background: none; color: inherit; }
+.nb-menu-hint { margin-left: auto; padding-left: 16px; color: var(--muted); font-size: .75rem; }
+.nb-menu-seg { display: flex; align-items: center; gap: 2px; padding: 2px 4px 2px 8px; }
+.nb-menu-seg > span { flex: 1; padding-right: 12px; }
+.nb-menu .nb-menu-seg button { width: 34px; min-height: 30px; padding: 0; justify-content: center; }
+.nb-menu-seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.nb-menu-seg svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+/* El menú de la tabla que abre el clic derecho o un asa: flota donde se pidió. */
+.nb-table-ctx { position: fixed; z-index: 13; top: 0; left: 0; white-space: nowrap; max-height: calc(100vh - 16px); overflow-y: auto; }
+/* Asas sobre el borde de la tabla: la de la fila a la izquierda, la de la columna arriba. */
+.nb-grip {
+  position: fixed;
+  z-index: 9;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--muted);
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgb(0 0 0 / .12);
+}
+.nb-grip-row { width: 14px; height: 22px; }
+.nb-grip-col { width: 22px; height: 14px; }
+.nb-grip svg { width: 6px; height: 12px; fill: currentColor; }
+.nb-grip-col svg { width: 12px; height: 6px; }
+.nb-grip:hover, .nb-grip[aria-expanded="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+/* Un área de toque cómoda alrededor de un asa pequeña. */
+.nb-grip::before { content: ""; position: absolute; inset: -8px; }
+.nb-table-hl {
+  position: fixed;
+  z-index: 8;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+.nb-table-guide { position: fixed; z-index: 9; width: 2px; margin-left: -1px; background: var(--accent); pointer-events: none; }
+.nb-table-guide[data-label]::after {
+  content: attr(data-label);
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 2px 6px;
+  background: var(--accent);
+  color: var(--on-accent);
+  border-radius: 4px;
+  font-size: .75rem;
+  white-space: nowrap;
+}
+.nb-body.nb-col-edge, .nb-body.nb-col-edge * { cursor: col-resize; }
+body.nb-col-resizing, body.nb-col-resizing * { cursor: col-resize !important; user-select: none; }
 
 .nb-picker {
   position: fixed;
@@ -578,6 +683,7 @@ body.nb-sorting, body.nb-sorting * { cursor: grabbing !important; }
   .nb-icon { width: 36px; height: 40px; }
   .nb-dot { width: 26px; height: 26px; }
   .nb-tool { min-width: 40px; height: 40px; }
+  .nb-table-grid { --pick: 24px; }
 }
 </style>
 </head>
@@ -651,6 +757,12 @@ body.nb-sorting, body.nb-sorting * { cursor: grabbing !important; }
         <button class="nb-tool" data-cmd="insertOrderedList" aria-label="Lista numerada" title="Lista numerada" aria-pressed="false">
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M7 4h7M7 8h7M7 12h7M2 3l1.2-.8V6"/><path d="M2 10.2c.5-.8 2-.6 2 .3 0 .8-2 1.3-2 2.5h2.2"/></svg>
         </button>
+        <div class="nb-menu-wrap">
+          <button class="nb-tool" id="btnTable" data-menu="menuTable" aria-expanded="false" aria-label="Tabla" title="Insertar tabla">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M2 6.5h12M2 10h12M6 2.5v11M10 2.5v11"/></svg> ▾
+          </button>
+          <div class="nb-menu nb-table-menu" id="menuTable" hidden></div>
+        </div>
         <span class="nb-sep"></span>
         <button class="nb-tool" id="btnLink" aria-label="Enlazar página" title="Enlazar página (también con @)" aria-haspopup="listbox" aria-expanded="false">
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 9.5l3-3M7.2 4.3l.9-.9a2.8 2.8 0 0 1 4 4l-.9.9M8.8 11.7l-.9.9a2.8 2.8 0 0 1-4-4l.9-.9"/></svg>
@@ -671,6 +783,12 @@ body.nb-sorting, body.nb-sorting * { cursor: grabbing !important; }
         <div class="nb-img-layer" id="imgLayer"></div>
         <div class="nb-img-badges" id="imgBadges" aria-hidden="true"></div>
       </div>
+
+      <button class="nb-grip nb-grip-row" id="gripRow" tabindex="-1" aria-label="Opciones de la fila" title="Fila: insertar, mover, eliminar" aria-haspopup="menu" aria-expanded="false" hidden><svg viewBox="0 0 6 12" aria-hidden="true"><circle cx="1.5" cy="2" r="1"/><circle cx="4.5" cy="2" r="1"/><circle cx="1.5" cy="6" r="1"/><circle cx="4.5" cy="6" r="1"/><circle cx="1.5" cy="10" r="1"/><circle cx="4.5" cy="10" r="1"/></svg></button>
+      <button class="nb-grip nb-grip-col" id="gripCol" tabindex="-1" aria-label="Opciones de la columna" title="Columna: insertar, mover, ordenar, alinear, eliminar" aria-haspopup="menu" aria-expanded="false" hidden><svg viewBox="0 0 12 6" aria-hidden="true"><circle cx="2" cy="1.5" r="1"/><circle cx="6" cy="1.5" r="1"/><circle cx="10" cy="1.5" r="1"/><circle cx="2" cy="4.5" r="1"/><circle cx="6" cy="4.5" r="1"/><circle cx="10" cy="4.5" r="1"/></svg></button>
+      <div class="nb-table-hl" id="tableHl" aria-hidden="true" hidden></div>
+      <div class="nb-table-guide" id="tableGuide" aria-hidden="true" hidden></div>
+      <div class="nb-menu nb-table-menu nb-table-ctx" id="tableCtx" role="menu" aria-label="Opciones de la tabla" hidden></div>
 
       <div class="nb-img-frame" id="imgFrame" hidden>
         <span data-corner="nw"></span><span data-corner="ne"></span><span data-corner="sw"></span><span data-corner="se"></span>
@@ -842,13 +960,18 @@ const ALLOWED_HIGHLIGHTS = new Set(HIGHLIGHTS.map(c => cssColor(c[0])));
 const NOTE_TAGS = new Set(['P', 'DIV', 'BR', 'B', 'STRONG', 'I', 'EM', 'U', 'H2', 'H3', 'UL', 'OL', 'LI', 'SPAN', 'FONT', 'A']);
 const PAGE_ID = /^[\w-]{1,100}$/;
 // Bloques que pueden llevar un marcador: el id y el nombre van en el propio bloque.
-const MARK_TAGS = new Set(['P', 'DIV', 'H2', 'H3', 'LI']);
+const MARK_TAGS = new Set(['P', 'DIV', 'H2', 'H3', 'LI', 'TD', 'TH']);
 const MARK_NAME_MAX = 80;
 const cleanMarkName = name => String(name || '').replace(/\s+/g, ' ').trim().slice(0, MARK_NAME_MAX);
 const TAG_MAP = {
   H1: 'H2', H4: 'H3', H5: 'H3', H6: 'H3',
-  BLOCKQUOTE: 'DIV', PRE: 'DIV', SECTION: 'DIV', ARTICLE: 'DIV', TR: 'DIV',
+  BLOCKQUOTE: 'DIV', PRE: 'DIV', SECTION: 'DIV', ARTICLE: 'DIV',
 };
+// Una celda combinada no ocupa más que esto al separarla: una copia manipulada no puede inflar la tabla.
+const TABLE_MAX_SPAN = 50;
+const TABLE_MIN_SHARE = 15;  // una tabla angosta ocupa al menos este % de la hoja
+const COL_MIN_SHARE = 3;     // ninguna columna guardada baja de este % de su tabla
+const CELL_ALIGNS = new Set(['center', 'right']);
 const DROPPED_TAGS = new Set([
   'SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'NOSCRIPT', 'TEMPLATE', 'SVG', 'MATH',
   'TITLE', 'HEAD', 'META', 'LINK', 'IMG', 'VIDEO', 'AUDIO', 'CANVAS', 'FORM', 'INPUT', 'BUTTON', 'SELECT', 'TEXTAREA',
@@ -861,8 +984,126 @@ const validSide = value => {
   return Number.isInteger(side) && side > 0 && side <= 32767 ? side : null;
 };
 
+function copyMark(source, el, marks) {
+  const markId = marks ? source.getAttribute('data-mark-id') || '' : '';
+  if (!PAGE_ID.test(markId)) return;
+  el.setAttribute('data-mark-id', markId);
+  el.setAttribute('data-mark-name', cleanMarkName(source.getAttribute('data-mark-name')) || 'Marcador');
+}
+
+// La rejilla de la tabla con las celdas combinadas ya separadas: cada hueco dice de qué celda es
+// y si es su esquina de arriba a la izquierda, la que se queda con el contenido.
+function tableGrid(table) {
+  const rows = [...table.rows];
+  const grid = rows.map(() => []);
+  rows.forEach((row, r) => {
+    let c = 0;
+    for (const cell of row.cells) {
+      while (grid[r][c]) c++;
+      const across = clamp(cell.colSpan || 1, 1, TABLE_MAX_SPAN);
+      const down = clamp(cell.rowSpan || 1, 1, rows.length - r);
+      for (let i = 0; i < down; i++) {
+        for (let j = 0; j < across; j++) grid[r + i][c + j] = { cell, origin: !i && !j };
+      }
+      c += across;
+    }
+  });
+  return grid;
+}
+
+// Siempre rectangular: todas las filas con todas sus celdas, y las vacías con un <br> donde poner el cursor.
+function cleanTable(node, target, marks) {
+  const doc = target.ownerDocument;
+  const caption = [...node.children].find(child => child.tagName === 'CAPTION');
+  if (caption && caption.textContent.trim()) {
+    const p = doc.createElement('p');
+    cleanChildren(caption, p, marks, true);
+    target.append(p);
+  }
+  const grid = tableGrid(node);
+  const width = grid.reduce((most, row) => Math.max(most, row.length), 0);
+  if (!width) return;
+  const tbody = doc.createElement('tbody');
+  for (const slots of grid) {
+    const tr = doc.createElement('tr');
+    for (let c = 0; c < width; c++) {
+      const slot = slots[c];
+      const cell = doc.createElement(slot && slot.cell.tagName === 'TH' ? 'th' : 'td');
+      if (slot && slot.origin) {
+        copyMark(slot.cell, cell, marks);
+        const align = slot.cell.getAttribute('data-align');
+        if (CELL_ALIGNS.has(align)) cell.setAttribute('data-align', align);
+        cleanChildren(slot.cell, cell, marks, true);
+      }
+      if (!cell.hasChildNodes()) cell.append(doc.createElement('br'));
+      tr.append(cell);
+    }
+    tbody.append(tr);
+  }
+  const table = doc.createElement('table');
+  const share = cssPercent(node.style && node.style.width);
+  if (share >= TABLE_MIN_SHARE && share < 100) table.style.width = `${Math.round(share * 10) / 10}%`;
+  const widths = sourceColWidths(node, width);
+  if (widths) {
+    const group = doc.createElement('colgroup');
+    for (const w of widths) {
+      const col = doc.createElement('col');
+      col.style.width = `${w}%`;
+      group.append(col);
+    }
+    table.append(group);
+  }
+  table.append(tbody);
+  target.append(table);
+}
+
+// "45%" → 45; cualquier otra cosa (px, auto, basura) → NaN.
+function cssPercent(value) {
+  const match = /^\s*(\d+(?:\.\d+)?)%\s*$/.exec(String(value || ''));
+  return match ? Number(match[1]) : NaN;
+}
+
+// Anchos en %, ninguno por debajo del mínimo, que suman 100. Si todos son casi iguales, null: columnas iguales.
+function normalizeShares(list) {
+  let total = list.reduce((sum, w) => sum + w, 0);
+  if (!(total > 0)) return null;
+  const shares = list.map(w => Math.max(COL_MIN_SHARE, w / total * 100));
+  total = shares.reduce((sum, w) => sum + w, 0);
+  const out = shares.map(w => Math.round(w / total * 1000) / 10);
+  if (out.every(w => Math.abs(w - out[0]) < 0.2)) return null;
+  // Lo que se pierde al redondear lo absorbe la más ancha: el total queda en 100 justo.
+  const widest = out.indexOf(Math.max(...out));
+  out[widest] = Math.round((out[widest] + 100 - out.reduce((sum, w) => sum + w, 0)) * 10) / 10;
+  return out;
+}
+
+// Los anchos de columna solo se conservan si hay uno por columna y todos son porcentajes.
+function sourceColWidths(node, width) {
+  const cols = [];
+  for (const child of node.children) {
+    if (child.tagName !== 'COLGROUP') continue;
+    for (const col of child.children) if (col.tagName === 'COL') cols.push(col);
+  }
+  if (cols.length !== width) return null;
+  const list = cols.map(col => cssPercent(col.style && col.style.width));
+  return list.every(w => Number.isFinite(w) && w > 0) ? normalizeShares(list) : null;
+}
+
+// Sin tablas dentro de tablas: la de dentro se reduce a una línea por fila.
+function flattenTable(node, target, marks) {
+  for (const row of node.rows) {
+    const line = target.ownerDocument.createElement('div');
+    [...row.cells].forEach((cell, i) => {
+      if (i) line.append(' ');
+      cleanChildren(cell, line, marks, true);
+    });
+    if (line.textContent.trim()) target.append(line);
+  }
+}
+
 // `marks`: si se conservan los marcadores de los bloques. Al pegar no, para no duplicarlos.
-function cleanChildren(source, target, marks = true) {
+// `inTable`: si lo que se limpia va dentro de una celda.
+function cleanChildren(source, target, marks = true, inTable = false) {
   for (const node of source.childNodes) {
     if (node.nodeType === Node.TEXT_NODE) {
       target.append(target.ownerDocument.createTextNode(node.data));
@@ -871,11 +1112,16 @@ function cleanChildren(source, target, marks = true) {
     if (node.nodeType !== Node.ELEMENT_NODE) continue;
     const tag = node.tagName.toUpperCase();
     if (DROPPED_TAGS.has(tag)) continue;
+    if (tag === 'TABLE' && node.rows) {
+      if (inTable) flattenTable(node, target, marks);
+      else cleanTable(node, target, marks);
+      continue;
+    }
     const mapped = TAG_MAP[tag] || tag;
     // Google Docs envuelve todo lo pegado en un <b style="font-weight:normal">.
     const fakeBold = mapped === 'B' && node.style && node.style.fontWeight === 'normal';
     if (!NOTE_TAGS.has(mapped) || fakeBold) {
-      cleanChildren(node, target, marks);
+      cleanChildren(node, target, marks, inTable);
       continue;
     }
     if (mapped === 'A') {
@@ -884,7 +1130,7 @@ function cleanChildren(source, target, marks = true) {
       const mark = node.getAttribute('data-mark') || '';
       const text = node.textContent.replace(/\s+/g, ' ').trim();
       if (!PAGE_ID.test(id)) {
-        cleanChildren(node, target, marks);
+        cleanChildren(node, target, marks, inTable);
       } else if (text) {
         const link = target.ownerDocument.createElement('a');
         link.setAttribute('data-page', id);
@@ -896,11 +1142,7 @@ function cleanChildren(source, target, marks = true) {
       continue;
     }
     const el = target.ownerDocument.createElement(mapped);
-    const markId = marks && MARK_TAGS.has(mapped) ? node.getAttribute('data-mark-id') || '' : '';
-    if (PAGE_ID.test(markId)) {
-      el.setAttribute('data-mark-id', markId);
-      el.setAttribute('data-mark-name', cleanMarkName(node.getAttribute('data-mark-name')) || 'Marcador');
-    }
+    if (MARK_TAGS.has(mapped)) copyMark(node, el, marks);
     if (mapped === 'FONT') {
       const color = (node.getAttribute('color') || '').toLowerCase();
       if (ALLOWED_TEXT_COLORS.has(color)) el.setAttribute('color', color);
@@ -908,7 +1150,7 @@ function cleanChildren(source, target, marks = true) {
       const bg = cssColor(node.style.backgroundColor);
       if (ALLOWED_HIGHLIGHTS.has(bg)) el.setAttribute('style', `background-color: ${bg}`);
     }
-    cleanChildren(node, el, marks);
+    cleanChildren(node, el, marks, inTable);
     if ((mapped === 'FONT' || mapped === 'SPAN') && !el.hasAttributes()) target.append(...el.childNodes);
     else target.append(el);
   }
@@ -934,30 +1176,36 @@ function dedupeMarks(root) {
 }
 
 // Solo sale lo que está en la lista permitida; todo lo demás se descarta o se reduce a su texto.
-function sanitizeNote(html, { marks = true } = {}) {
+// `inTable`: lo pegado va dentro de una celda, así que sus tablas se aplanan.
+function sanitizeNote(html, { marks = true, inTable = false } = {}) {
   const source = new DOMParser().parseFromString(String(html || ''), 'text/html');
   const out = document.implementation.createHTMLDocument('');
   if (marks) dedupeMarks(source.body);
-  cleanChildren(source.body, out.body, marks);
+  cleanChildren(source.body, out.body, marks, inTable);
   return out.body.innerHTML;
 }
 
 const INLINE_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'SPAN', 'FONT', 'A']);
 
-function noteText(html) {
+// El texto de un nodo en una sola línea: los bloques y las celdas se separan con un espacio.
+function flatText(root) {
   const parts = [];
   const walk = node => {
     for (const child of node.childNodes) {
       if (child.nodeType === Node.TEXT_NODE) parts.push(child.data);
       else if (child.nodeType === Node.ELEMENT_NODE) {
+        const block = !INLINE_TAGS.has(child.tagName);
+        if (block) parts.push(' ');
         walk(child);
-        if (!INLINE_TAGS.has(child.tagName)) parts.push(' ');
+        if (block) parts.push(' ');
       }
     }
   };
-  walk(new DOMParser().parseFromString(html, 'text/html').body);
+  walk(root);
   return parts.join('').replace(/\s+/g, ' ').trim();
 }
+
+const noteText = html => flatText(new DOMParser().parseFromString(html, 'text/html').body);
 
 /* ---------- IndexedDB ---------- */
 
@@ -1060,7 +1308,7 @@ function flush() {
 }
 
 function paintEmptyBody() {
-  body.classList.toggle('is-empty', !body.textContent.trim() && !body.querySelector('li'));
+  body.classList.toggle('is-empty', !body.textContent.trim() && !body.querySelector('li, table'));
 }
 
 /* ---------- Cuadernos ---------- */
@@ -1485,6 +1733,7 @@ function renderEditor() {
   if (!page) { bar.hidden = true; return; }
   $('pageTitle').value = page.title;
   body.innerHTML = sanitizeNote(page.html);
+  keepLineAfterTable();
   paintLinks();
   scroller.scrollTop = 0;
   paintEmptyBody();
@@ -1557,6 +1806,7 @@ function updateBar() {
     $('styleLabel').textContent = 'Normal';
   }
   paintMarkButton();
+  paintTableButton();
 }
 
 function exec(command, value) {
@@ -1602,6 +1852,15 @@ $('menuHighlight').append(
     menuOption(h('span', { class: 'nb-swatch', style: `background-color: ${value}`, text: 'A' }), label, () => applyHighlight(value))),
 );
 
+// Los menús se abren hacia la derecha; cerca del borde se corren para no salirse de la ventana.
+function fitMenu(menu) {
+  menu.style.left = '';
+  const rect = menu.getBoundingClientRect();
+  // `innerWidth` no sirve: en el móvil crece con el propio menú que se sale.
+  const shift = Math.min(0, document.documentElement.clientWidth - 8 - rect.right);
+  if (shift) menu.style.left = `${Math.max(shift, 8 - menu.parentElement.getBoundingClientRect().left)}px`;
+}
+
 // Sin esto, pulsar la barra quita el foco al editor y se pierde la selección.
 bar.addEventListener('mousedown', e => e.preventDefault());
 bar.addEventListener('click', e => {
@@ -1613,15 +1872,811 @@ bar.addEventListener('click', e => {
     const menu = $(btn.dataset.menu);
     const willOpen = menu.hidden;
     closeMenus();
+    if (willOpen && menu === menuTable) paintTableMenu();
     menu.hidden = !willOpen;
     btn.setAttribute('aria-expanded', String(willOpen));
+    if (willOpen) fitMenu(menu);
   }
 });
 $('btnClear').addEventListener('click', clearFormat);
 
 document.addEventListener('selectionchange', updateBar);
 document.addEventListener('pointerdown', e => { if (!bar.contains(e.target)) closeMenus(); }, true);
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenus(); });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  // Con el teclado dentro de un menú, el foco vuelve a su botón en vez de perderse.
+  const open = [...bar.querySelectorAll('.nb-menu')].find(menu => !menu.hidden && menu.contains(document.activeElement));
+  closeMenus();
+  if (open) bar.querySelector(`[data-menu="${open.id}"]`).focus();
+});
+
+/* ---------- Tablas ---------- */
+
+const menuTable = $('menuTable');
+const btnTable = $('btnTable');
+const TABLE_PICK_COLS = 10;
+const TABLE_PICK_ROWS = 8;
+let bodyEdits = 0;  // sube con cada cambio del texto: el Deshacer del aviso solo vale si no hubo otro
+
+const newCell = tag => h(tag, {}, h('br'));
+const isHeaderRow = row => !!row && row.cells.length > 0 && [...row.cells].every(cell => cell.tagName === 'TH');
+const tableWidth = table => [...table.rows].reduce((most, row) => Math.max(most, row.cells.length), 0);
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+// La celda donde está el cursor, o null si no está en una tabla.
+function caretCell(range = selectionRange()) {
+  if (!range) return null;
+  const node = range.startContainer;
+  const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  const cell = el && el.closest('td, th');
+  return cell && body.contains(cell) ? cell : null;
+}
+
+// `at`: 'start', 'end' o 'select' (todo su contenido, para escribir encima, como con Tab en Word).
+function caretInto(el, at = 'start') {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  if (at !== 'select' || !el.textContent.trim()) range.collapse(at !== 'end');
+  restoreSelection(range);
+}
+
+function caretAtStart(el, range) {
+  const before = document.createRange();
+  before.setStart(el, 0);
+  before.setEnd(range.startContainer, range.startOffset);
+  return !before.toString() && !before.cloneContents().querySelector('br');
+}
+
+function paintTableButton() {
+  const inTable = !!caretCell();
+  btnTable.classList.toggle('nb-tool-on', inTable);
+  btnTable.title = inTable ? 'Tabla: filas, columnas y encabezado' : 'Insertar tabla';
+  // Si el cursor entra o sale de una tabla con el menú abierto, el menú cambia con él.
+  if (!menuTable.hidden && menuTable.dataset.mode !== (inTable ? 'edit' : 'insert')) {
+    paintTableMenu();
+    fitMenu(menuTable);
+  }
+  paintTableGrips();
+}
+
+// Fuera de una tabla, el menú es la rejilla para elegir el tamaño; dentro, lo que se puede hacer con ella.
+function paintTableMenu() {
+  const cell = caretCell();
+  menuTable.dataset.mode = cell ? 'edit' : 'insert';
+  if (cell) paintTableActions(cell);
+  else paintTablePicker();
+}
+
+function paintTablePicker() {
+  const size = h('div', { class: 'nb-table-size', 'aria-hidden': 'true', text: 'Elige el tamaño' });
+  const grid = h('div', { class: 'nb-table-grid', role: 'group', 'aria-label': 'Tamaño de la tabla', style: `grid-template-columns: repeat(${TABLE_PICK_COLS}, var(--pick))` });
+  const show = (cols, rows) => {
+    for (const btn of grid.children) btn.classList.toggle('on', +btn.dataset.col <= cols && +btn.dataset.row <= rows);
+    size.textContent = cols ? `${plural(cols, 'columna', 'columnas')} × ${plural(rows, 'fila', 'filas')}` : 'Elige el tamaño';
+  };
+  for (let row = 1; row <= TABLE_PICK_ROWS; row++) {
+    for (let col = 1; col <= TABLE_PICK_COLS; col++) {
+      grid.append(h('button', {
+        'data-col': col,
+        'data-row': row,
+        tabindex: row === 1 && col === 1 ? '0' : '-1',
+        'aria-label': `${plural(col, 'columna', 'columnas')} por ${plural(row, 'fila', 'filas')}`,
+        onpointerenter: () => show(col, row),
+        onfocus: () => show(col, row),
+        onclick: () => { closeMenus(); insertTable(col, row); },
+      }));
+    }
+  }
+  grid.addEventListener('pointerleave', () => show(0, 0));
+  // Con el teclado, las flechas recorren la rejilla y Enter inserta.
+  grid.addEventListener('keydown', e => {
+    const moves = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -TABLE_PICK_COLS, ArrowDown: TABLE_PICK_COLS };
+    if (!(e.key in moves)) return;
+    e.preventDefault();
+    const buttons = [...grid.children];
+    const from = buttons.indexOf(document.activeElement);
+    const next = buttons[from + moves[e.key]];
+    if (from < 0 || !next) return;
+    buttons[from].tabIndex = -1;
+    next.tabIndex = 0;
+    next.focus();
+  });
+  menuTable.replaceChildren(grid, size);
+}
+
+// Dónde está la celda dentro de su tabla y lo que se puede hacer desde ahí.
+function cellPlace(cell) {
+  const table = cell.closest('table');
+  const rows = [...table.rows];
+  const row = rows.indexOf(cell.parentElement);
+  const col = [...cell.parentElement.cells].indexOf(cell);
+  const header = isHeaderRow(rows[0]);
+  return { table, rows, row, col, header, first: header ? 1 : 0, width: tableWidth(table) };
+}
+
+const ALIGN_ICONS = {
+  left: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4h11M2.5 8h7M2.5 12h9"/></svg>',
+  center: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4h11M4.5 8h7M3.5 12h9"/></svg>',
+  right: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4h11M6.5 8h7M4.5 12h9"/></svg>',
+};
+
+// Una sola lista de acciones para los tres menús: el de la barra, el clic derecho y las asas.
+// `scope`: 'row', 'col' o 'all'. Cada acción recibe la celda, que puede no tener el cursor.
+function tableMenuItems(cell, scope) {
+  const { table, rows, row, col, header, first, width } = cellPlace(cell);
+  const inHeader = header && row === 0;
+  const align = cell.getAttribute('data-align') || 'left';
+  const rowAdd = [
+    { label: 'Insertar fila arriba', run: () => insertRow(false, cell) },
+    { label: 'Insertar fila abajo', hint: 'Ctrl+Enter', run: () => insertRow(true, cell) },
+  ];
+  const rowMove = [
+    { label: 'Subir fila', disabled: inHeader || row <= first, run: () => moveRow(cell, -1) },
+    { label: 'Bajar fila', disabled: inHeader || row >= rows.length - 1, run: () => moveRow(cell, 1) },
+  ];
+  const colAdd = [
+    { label: 'Insertar columna a la izquierda', run: () => insertColumn(false, cell) },
+    { label: 'Insertar columna a la derecha', run: () => insertColumn(true, cell) },
+  ];
+  const colMove = [
+    { label: 'Mover columna a la izquierda', disabled: col <= 0, run: () => moveColumn(cell, -1) },
+    { label: 'Mover columna a la derecha', disabled: col >= width - 1, run: () => moveColumn(cell, 1) },
+  ];
+  const sortable = rows.length - first >= 2;
+  const colArrange = [
+    { label: 'Ordenar A → Z', disabled: !sortable, run: () => sortColumn(cell, false) },
+    { label: 'Ordenar Z → A', disabled: !sortable, run: () => sortColumn(cell, true) },
+    { align, run: value => alignColumn(cell, value) },
+  ];
+  const equalize = { label: 'Igualar ancho de columnas', disabled: !hasColWidths(table), run: () => equalizeColumns(cell) };
+  const delRow = { label: 'Eliminar fila', hint: 'Ctrl+Mayús+⌫', danger: true, run: () => deleteRow(cell) };
+  const delCol = { label: 'Eliminar columna', danger: true, run: () => deleteColumn(cell) };
+  if (scope === 'row') return [...rowAdd, ...rowMove, 'hr', delRow];
+  if (scope === 'col') return [...colAdd, ...colMove, 'hr', ...colArrange, equalize, 'hr', delCol];
+  return [
+    ...rowAdd, ...rowMove, 'hr', ...colAdd, ...colMove, 'hr', ...colArrange, 'hr',
+    { label: 'Fila de encabezado', pressed: header, run: () => toggleHeaderRow(cell) },
+    equalize,
+    ...(tableShare(table) < 100 ? [{ label: 'Ancho completo', run: () => fullWidthTable(cell) }] : []),
+    'hr', delRow, delCol,
+    { label: 'Eliminar tabla', danger: true, run: () => deleteTable(cell) },
+  ];
+}
+
+function menuNodes(items) {
+  const done = run => (...args) => { closeMenus(); closeTableCtx(); run(...args); };
+  return items.map(item => {
+    if (item === 'hr') return h('hr');
+    if (item.align) {
+      return h('div', { class: 'nb-menu-seg', role: 'group', 'aria-label': 'Alinear columna' },
+        h('span', { text: 'Alinear' }),
+        ...[['left', 'a la izquierda'], ['center', 'al centro'], ['right', 'a la derecha']].map(([value, label]) => {
+          const btn = h('button', { 'aria-pressed': String(item.align === value), 'aria-label': `Alinear ${label}`, title: `Alinear ${label}`, onclick: done(() => item.run(value)) });
+          btn.innerHTML = ALIGN_ICONS[value];
+          return btn;
+        }));
+    }
+    return h('button', {
+      class: item.danger ? 'danger' : null,
+      disabled: item.disabled || null,
+      'aria-pressed': item.pressed === undefined ? null : String(item.pressed),
+      onclick: done(item.run),
+    },
+    item.pressed === undefined ? null : h('span', { class: 'nb-menu-box', 'aria-hidden': 'true', text: item.pressed ? '✓' : '' }),
+    item.label,
+    item.hint ? h('span', { class: 'nb-menu-hint', text: item.hint }) : null);
+  });
+}
+
+function paintTableActions(cell) {
+  menuTable.replaceChildren(...menuNodes(tableMenuItems(cell, 'all')));
+}
+
+// Una tabla al final de la hoja deja siempre una línea debajo para seguir escribiendo.
+function keepLineAfterTable() {
+  const last = body.lastElementChild;
+  if (!last || last.tagName !== 'TABLE') return;
+  for (let node = last.nextSibling; node; node = node.nextSibling) if (node.textContent.trim()) return;
+  body.append(h('p', {}, h('br')));
+}
+
+// Si después del cursor no queda texto, lo insertado lleva un párrafo vacío detrás para seguir escribiendo.
+// Va en el mismo execCommand que la tabla: así Ctrl+Z quita las dos cosas juntas.
+function lineAfter(range) {
+  const rest = document.createRange();
+  rest.setStart(range.endContainer, range.endOffset);
+  rest.setEnd(body, body.childNodes.length);
+  return rest.toString().trim() ? '' : '<p><br></p>';
+}
+
+function afterTableChange() {
+  keepLineAfterTable();
+  paintLinks();
+  paintEmptyBody();
+  markDirty();
+  updateBar();
+}
+
+// Con execCommand, Ctrl+Z también deshace la tabla insertada.
+function insertTable(cols, rows) {
+  if (!currentPage()) return;
+  let range = selectionRange();
+  if (!range) {
+    restoreSelection(null);
+    range = selectionRange();
+  }
+  if (!range || caretCell(range)) return;
+  // Lo seleccionado se queda: la tabla va justo después.
+  range = range.cloneRange();
+  range.collapse(false);
+  const table = h('table', { 'data-nb-new': '' }, h('tbody', {},
+    ...Array.from({ length: rows }, () => h('tr', {}, ...Array.from({ length: cols }, () => newCell('td'))))));
+  restoreSelection(range);
+  document.execCommand('insertHTML', false, table.outerHTML + lineAfter(range));
+  const placed = body.querySelector('table[data-nb-new]');
+  if (placed) {
+    placed.removeAttribute('data-nb-new');
+    caretInto(placed.rows[0].cells[0]);
+  }
+  afterTableChange();
+}
+
+// Cambia la tabla de la celda sobre una copia y la pone en su lugar de una vez, con execCommand:
+// así Ctrl+Z deshace el cambio entero. `change(copy, fila, columna)` devuelve dónde queda el cursor.
+// La celda es la del cursor salvo que se diga otra (clic derecho, asas, tiradores).
+function editTable(change, cell = caretCell()) {
+  if (!cell || !body.contains(cell)) return;
+  const table = cell.closest('table');
+  const row = [...table.rows].indexOf(cell.parentElement);
+  const col = [...cell.parentElement.cells].indexOf(cell);
+  const copy = table.cloneNode(true);
+  const [toRow, toCol] = change(copy, row, col);
+  copy.setAttribute('data-nb-new', '');
+  // Al reemplazarla, Chrome se lleva también la línea vacía que la sigue: se devuelve en el mismo paso.
+  const next = table.nextSibling;
+  const emptyLine = !!next && /^(P|DIV)$/.test(next.nodeName) && [...next.childNodes].every(node => node.nodeName === 'BR');
+  const range = document.createRange();
+  range.selectNode(table);
+  restoreSelection(range);
+  document.execCommand('insertHTML', false, copy.outerHTML + (emptyLine ? '<p><br></p>' : ''));
+  const placed = body.querySelector('table[data-nb-new]');
+  if (placed) {
+    placed.removeAttribute('data-nb-new');
+    const target = placed.rows[clamp(toRow, 0, placed.rows.length - 1)];
+    if (target) caretInto(target.cells[clamp(toCol, 0, target.cells.length - 1)]);
+  }
+  afterTableChange();
+}
+
+/* Anchos: las columnas en % de su tabla (en un <colgroup>) y la tabla en % de la hoja. */
+
+const colGroup = table => [...table.children].find(child => child.tagName === 'COLGROUP') || null;
+const hasColWidths = table => !!colGroup(table);
+const tableShare = table => {
+  const share = cssPercent(table.style.width);
+  return share > 0 && share < 100 ? share : 100;
+};
+
+function colWidths(table) {
+  const n = tableWidth(table);
+  const cols = colGroup(table) ? [...colGroup(table).children] : [];
+  const list = cols.map(col => cssPercent(col.style.width));
+  return cols.length === n && list.every(w => w > 0) ? list : Array(n).fill(100 / n);
+}
+
+// Sin lista, o con todas casi iguales, se quita el colgroup y las columnas vuelven a ser iguales.
+function setColWidths(table, list) {
+  const old = colGroup(table);
+  if (old) old.remove();
+  const shares = list && list.length === tableWidth(table) ? normalizeShares(list) : null;
+  if (shares) table.prepend(h('colgroup', {}, ...shares.map(w => h('col', { style: `width: ${w}%` }))));
+}
+
+function setTableShare(table, share) {
+  if (share >= 100) table.style.removeProperty('width');
+  else table.style.width = `${Math.round(clamp(share, TABLE_MIN_SHARE, 100) * 10) / 10}%`;
+  if (!table.getAttribute('style')) table.removeAttribute('style');
+}
+
+// La fila nueva copia el tipo de celda y la alineación de la de referencia;
+// debajo del encabezado empiezan los datos, así que ahí son celdas normales.
+function addRow(table, index, below) {
+  const ref = table.rows[index];
+  const plain = below && isHeaderRow(ref);
+  const tr = h('tr', {}, ...Array.from({ length: tableWidth(table) }, (_, i) => {
+    const same = ref.cells[i];
+    const cell = newCell(!plain && same && same.tagName === 'TH' ? 'th' : 'td');
+    const align = same && same.getAttribute('data-align');
+    if (CELL_ALIGNS.has(align)) cell.setAttribute('data-align', align);
+    return cell;
+  }));
+  if (below) ref.after(tr);
+  else ref.before(tr);
+}
+
+function insertRow(below, cell) {
+  editTable((copy, row, col) => {
+    addRow(copy, row, below);
+    return [below ? row + 1 : row, col];
+  }, cell);
+}
+
+// La columna nueva toma su parte (1/n) y las demás se encogen en proporción.
+function insertColumn(right, cell) {
+  editTable((copy, row, col) => {
+    const at = right ? col + 1 : col;
+    const widths = hasColWidths(copy) ? colWidths(copy) : null;
+    for (const tr of copy.rows) tr.insertBefore(newCell(isHeaderRow(tr) ? 'th' : 'td'), tr.cells[at] || null);
+    if (widths) {
+      const share = 100 / (widths.length + 1);
+      const scaled = widths.map(w => w * (100 - share) / 100);
+      scaled.splice(at, 0, share);
+      setColWidths(copy, scaled);
+    }
+    return [row, at];
+  }, cell);
+}
+
+function deleteRow(cell = caretCell()) {
+  if (!cell) return;
+  if (cell.closest('table').rows.length === 1) { deleteTable(cell); return; }
+  editTable((copy, row, col) => {
+    copy.rows[row].remove();
+    return [row, col];
+  }, cell);
+}
+
+// Su ancho se reparte entre las que quedan.
+function deleteColumn(cell = caretCell()) {
+  if (!cell) return;
+  if (tableWidth(cell.closest('table')) === 1) { deleteTable(cell); return; }
+  editTable((copy, row, col) => {
+    const widths = hasColWidths(copy) ? colWidths(copy) : null;
+    for (const tr of [...copy.rows]) {
+      if (tr.cells[col]) tr.cells[col].remove();
+      if (!tr.cells.length) tr.remove();
+    }
+    if (widths) {
+      widths.splice(col, 1);
+      setColWidths(copy, widths);
+    }
+    return [row, col];
+  }, cell);
+}
+
+// El encabezado no se mueve y nada pasa por encima de él.
+function moveRow(cell, step) {
+  const { rows, row, first } = cellPlace(cell);
+  const to = row + step;
+  if (row < first || to < first || to >= rows.length) return;
+  editTable((copy, r, col) => {
+    const tr = copy.rows[r];
+    if (step < 0) copy.rows[to].before(tr);
+    else copy.rows[to].after(tr);
+    return [to, col];
+  }, cell);
+}
+
+// La columna se lleva su ancho y su alineación.
+function moveColumn(cell, step) {
+  const { col, width } = cellPlace(cell);
+  const to = col + step;
+  if (to < 0 || to >= width) return;
+  editTable((copy, row) => {
+    const widths = hasColWidths(copy) ? colWidths(copy) : null;
+    for (const tr of copy.rows) {
+      const a = tr.cells[Math.min(col, to)];
+      const b = tr.cells[Math.max(col, to)];
+      if (a && b) tr.insertBefore(b, a);
+    }
+    if (widths) {
+      [widths[col], widths[to]] = [widths[to], widths[col]];
+      setColWidths(copy, widths);
+    }
+    return [row, to];
+  }, cell);
+}
+
+// Una cifra como se escribe aquí: "1.234,5", "1234.5", "-3", "45 %", "$ 1.200" o "€12". Si no, NaN.
+function cellNumber(text) {
+  let s = text.replace(/[\s ]/g, '').replace(/^[$€]|[€%]$/g, '');
+  if (/^[-+]?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s) || /^[-+]?\d+,\d+$/.test(s)) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/^[-+]?\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) s = s.replace(/,/g, '');
+  else if (!/^[-+]?\d+(\.\d+)?$/.test(s)) return NaN;
+  return Number(s);
+}
+
+// Si todo lo escrito en la columna son cifras, se ordena como números; si no, como texto.
+// Las celdas vacías quedan al final en los dos sentidos, y el cursor sigue a su fila.
+function sortColumn(cell, descending) {
+  editTable((copy, row, col) => {
+    const rows = [...copy.rows];
+    const first = isHeaderRow(rows[0]) ? 1 : 0;
+    const data = rows.slice(first);
+    const mine = copy.rows[row];
+    const text = tr => cleanLine((tr.cells[col] && tr.cells[col].textContent) || '');
+    const filled = data.filter(tr => text(tr));
+    const numeric = filled.length > 0 && filled.every(tr => Number.isFinite(cellNumber(text(tr))));
+    const collator = new Intl.Collator('es', { numeric: true, sensitivity: 'base' });
+    const sorted = data.slice().sort((a, b) => {
+      const x = text(a);
+      const y = text(b);
+      if (!x || !y) return (!x) - (!y);
+      const order = numeric ? cellNumber(x) - cellNumber(y) : collator.compare(x, y);
+      return descending ? -order : order;
+    });
+    const parent = data[0].parentNode;
+    for (const tr of sorted) parent.append(tr);
+    return [[...copy.rows].indexOf(mine), col];
+  }, cell);
+}
+
+function alignColumn(cell, align) {
+  editTable((copy, row, col) => {
+    for (const tr of copy.rows) {
+      const target = tr.cells[col];
+      if (!target) continue;
+      if (CELL_ALIGNS.has(align)) target.setAttribute('data-align', align);
+      else target.removeAttribute('data-align');
+    }
+    return [row, col];
+  }, cell);
+}
+
+function equalizeColumns(cell) {
+  if (!hasColWidths(cell.closest('table'))) return;
+  editTable((copy, row, col) => { setColWidths(copy, null); return [row, col]; }, cell);
+}
+
+function fullWidthTable(cell) {
+  if (tableShare(cell.closest('table')) >= 100) return;
+  editTable((copy, row, col) => { setTableShare(copy, 100); return [row, col]; }, cell);
+}
+
+function retag(cell, tag) {
+  const next = document.createElement(tag);
+  for (const { name, value } of cell.attributes) next.setAttribute(name, value);
+  next.append(...cell.childNodes);
+  cell.replaceWith(next);
+}
+
+// Activar pone la primera fila como encabezado; quitarlo deja todas las celdas como normales.
+function toggleHeaderRow(cell) {
+  editTable((copy, row, col) => {
+    if (isHeaderRow(copy.rows[0])) copy.querySelectorAll('th').forEach(th => retag(th, 'td'));
+    else [...copy.rows[0].cells].forEach(c => retag(c, 'th'));
+    return [row, col];
+  }, cell);
+}
+
+// Ctrl+Z también la devuelve; el aviso lo ofrece mientras no hayas cambiado nada más.
+function deleteTable(cell = caretCell()) {
+  if (!cell || !body.contains(cell)) return;
+  const page = currentPage();
+  const range = document.createRange();
+  range.selectNode(cell.closest('table'));
+  restoreSelection(range);
+  document.execCommand('delete');
+  afterTableChange();
+  const stamp = bodyEdits;
+  toast('Tabla eliminada', 'Deshacer', () => {
+    if (currentPage() !== page || bodyEdits !== stamp) { toast('Ya hubo otros cambios: usa Ctrl+Z para recuperarla'); return; }
+    body.focus({ preventScroll: true });
+    document.execCommand('undo');
+  });
+}
+
+/* ---------- Asas, menú contextual y tiradores de la tabla ---------- */
+
+const tableCtx = $('tableCtx');
+const tableHl = $('tableHl');
+const tableGuide = $('tableGuide');
+const gripRow = $('gripRow');
+const gripCol = $('gripCol');
+const COL_MIN_PX = 40;
+const EDGE_GRAB = 5;  // a cuántos px del borde de una columna el puntero lo agarra
+let gripCell = null;
+let tableResize = null;
+
+const sheetArea = () => $('pageScroller').getBoundingClientRect();
+
+// Las asas van sobre el borde de la tabla, en la fila y la columna del cursor.
+function paintTableGrips() {
+  const cell = tableResize ? null : caretCell();
+  gripCell = cell;
+  if (!cell) { gripRow.hidden = gripCol.hidden = true; return; }
+  const area = sheetArea();
+  const table = cell.closest('table').getBoundingClientRect();
+  const c = cell.getBoundingClientRect();
+  const r = cell.parentElement.getBoundingClientRect();
+  const rowY = r.top + Math.min(r.height / 2, 16);
+  gripRow.hidden = rowY < area.top + 6 || rowY > area.bottom - 6;
+  gripCol.hidden = table.top < area.top + 4 || table.top > area.bottom - 6;
+  Object.assign(gripRow.style, { left: `${table.left}px`, top: `${rowY}px` });
+  Object.assign(gripCol.style, { left: `${c.left + c.width / 2}px`, top: `${table.top}px` });
+}
+
+// Marca la fila, la columna o la celda sobre la que actúa el menú abierto.
+function paintTableHighlight(cell, scope) {
+  const table = cell.closest('table').getBoundingClientRect();
+  const c = cell.getBoundingClientRect();
+  const r = cell.parentElement.getBoundingClientRect();
+  const box = scope === 'row' ? { left: table.left, top: r.top, width: table.width, height: r.height }
+    : scope === 'col' ? { left: c.left, top: table.top, width: c.width, height: table.height }
+    : { left: c.left, top: c.top, width: c.width, height: c.height };
+  Object.assign(tableHl.style, { left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px` });
+  tableHl.hidden = false;
+}
+
+// `at`: { x, y } donde abre; `above`, si no cabe debajo, el borde inferior que no debe pasar.
+function openTableCtx(cell, scope, at, opener) {
+  closeMenus();
+  closeTableCtx();
+  tableCtx.dataset.scope = scope;
+  tableCtx.replaceChildren(...menuNodes(tableMenuItems(cell, scope)));
+  tableCtx.style.left = '0px';
+  tableCtx.style.top = '0px';
+  tableCtx.hidden = false;
+  const menu = tableCtx.getBoundingClientRect();
+  const vw = document.documentElement.clientWidth;
+  const vh = document.documentElement.clientHeight;
+  const fitsBelow = at.y + menu.height <= vh - 8;
+  const top = fitsBelow ? at.y : Math.max(8, (at.above !== undefined ? at.above : at.y) - menu.height);
+  tableCtx.style.left = `${clamp(at.x, 8, Math.max(8, vw - menu.width - 8))}px`;
+  tableCtx.style.top = `${top}px`;
+  paintTableHighlight(cell, scope);
+  if (opener) opener.setAttribute('aria-expanded', 'true');
+}
+
+function closeTableCtx() {
+  if (tableCtx.hidden) return;
+  tableCtx.hidden = true;
+  tableHl.hidden = true;
+  delete tableCtx.dataset.scope;
+  gripRow.setAttribute('aria-expanded', 'false');
+  gripCol.setAttribute('aria-expanded', 'false');
+}
+
+function toggleGripMenu(scope, grip) {
+  if (!tableCtx.hidden && tableCtx.dataset.scope === scope) { closeTableCtx(); return; }
+  if (!gripCell || !body.contains(gripCell)) return;
+  const rect = grip.getBoundingClientRect();
+  openTableCtx(gripCell, scope, { x: rect.left, y: rect.bottom + 4, above: rect.top - 4 }, grip);
+}
+
+/* Tiradores: el borde entre dos columnas reparte el ancho entre ellas; el borde derecho cambia
+   el de toda la tabla. Mientras se arrastra se ve en vivo, y al soltar se aplica con editTable
+   para que Ctrl+Z lo deshaga. Escape cancela; doble clic vuelve a columnas iguales o al ancho completo. */
+
+function tableEdgeAt(x, y, target) {
+  let el = target && (target.nodeType === Node.ELEMENT_NODE ? target : target.parentElement);
+  let table = el && el.closest('table');
+  // Justo a la derecha de la tabla el puntero ya está fuera de ella.
+  if (!table) {
+    el = document.elementFromPoint(x - EDGE_GRAB - 1, y);
+    table = el && el.closest('table');
+  }
+  if (!table || !body.contains(table) || !table.rows.length) return null;
+  const rect = table.getBoundingClientRect();
+  if (y < rect.top || y > rect.bottom) return null;
+  const tr = (el.closest('tr') && table.contains(el.closest('tr'))) ? el.closest('tr') : table.rows[0];
+  const cells = [...tr.cells];
+  for (let i = 0; i < cells.length; i++) {
+    const right = cells[i].getBoundingClientRect().right;
+    if (Math.abs(x - right) <= EDGE_GRAB) return { table, index: i, outer: i === cells.length - 1 };
+  }
+  return null;
+}
+
+// El espacio que tiene la tabla: el ancho de su contenedor sin los márgenes interiores.
+function availWidth(table) {
+  const box = table.parentElement;
+  const style = getComputedStyle(box);
+  return box.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+}
+
+function paintGuide(table, x, label) {
+  const area = sheetArea();
+  const rect = table.getBoundingClientRect();
+  const top = Math.max(rect.top, area.top);
+  const bottom = Math.min(rect.bottom, area.bottom);
+  tableGuide.hidden = bottom <= top;
+  Object.assign(tableGuide.style, { left: `${x}px`, top: `${top}px`, height: `${Math.max(0, bottom - top)}px` });
+  if (label) tableGuide.dataset.label = label;
+  else delete tableGuide.dataset.label;
+}
+
+function hoverTableEdge(e) {
+  if (tableResize || e.buttons || e.pointerType === 'touch') return;
+  const edge = tableEdgeAt(e.clientX, e.clientY, e.target);
+  body.classList.toggle('nb-col-edge', !!edge);
+  if (!edge) { tableGuide.hidden = true; return; }
+  const cells = edge.table.rows[0].cells;
+  paintGuide(edge.table, cells[Math.min(edge.index, cells.length - 1)].getBoundingClientRect().right);
+}
+
+function startTableResize(start, edge) {
+  const { table, index, outer } = edge;
+  const widths = [...table.rows[0].cells].map(c => c.getBoundingClientRect().width);
+  const total = table.getBoundingClientRect().width;
+  const avail = availWidth(table);
+  const n = widths.length;
+  const savedGroup = colGroup(table);
+  const savedStyle = table.getAttribute('style');
+  let preview = null;
+  let result = null;
+  tableResize = { table };
+  closeTableCtx();
+  paintTableGrips();
+  document.body.classList.add('nb-col-resizing');
+  trackPointer(body, start, {
+    move(e) {
+      const dx = e.clientX - start.clientX;
+      if (!result && Math.abs(dx) < 2) return;
+      if (outer) {
+        const px = clamp(total + dx, Math.min(avail, Math.max(n * COL_MIN_PX, avail * TABLE_MIN_SHARE / 100)), avail);
+        let share = Math.round(px / avail * 1000) / 10;
+        if (share > 98.5) share = 100;
+        result = { share };
+        if (share >= 100) table.style.removeProperty('width');
+        else table.style.width = `${share}%`;
+        paintGuide(table, table.getBoundingClientRect().right, share >= 100 ? 'Ancho completo' : `${Math.round(share)} % de la hoja`);
+      } else {
+        const pair = widths[index] + widths[index + 1];
+        const min = Math.min(COL_MIN_PX, pair / 2);
+        const left = clamp(widths[index] + dx, min, pair - min);
+        const px = widths.slice();
+        px[index] = left;
+        px[index + 1] = pair - left;
+        result = { shares: px.map(w => w / total * 100) };
+        if (!preview) {
+          if (savedGroup) savedGroup.remove();
+          preview = h('colgroup');
+          table.prepend(preview);
+        }
+        preview.replaceChildren(...result.shares.map(w => h('col', { style: `width: ${w}%` })));
+        paintGuide(table, table.rows[0].cells[index].getBoundingClientRect().right);
+      }
+    },
+    end(commit) {
+      // Lo de la vista previa se deshace: el cambio de verdad entra por editTable, con su Ctrl+Z.
+      if (preview) {
+        preview.remove();
+        if (savedGroup) table.prepend(savedGroup);
+      }
+      if (savedStyle === null) table.removeAttribute('style');
+      else table.setAttribute('style', savedStyle);
+      tableResize = null;
+      document.body.classList.remove('nb-col-resizing');
+      tableGuide.hidden = true;
+      delete tableGuide.dataset.label;
+      if (commit && result && body.contains(table)) {
+        const caret = caretCell();
+        const cell = caret && caret.closest('table') === table ? caret : table.rows[0].cells[outer ? 0 : index];
+        editTable((copy, row, col) => {
+          if (outer) setTableShare(copy, result.share);
+          else setColWidths(copy, result.shares);
+          return [row, col];
+        }, cell);
+      }
+      paintTableGrips();
+    },
+  });
+}
+
+body.addEventListener('pointermove', hoverTableEdge);
+body.addEventListener('pointerleave', () => {
+  if (tableResize) return;
+  body.classList.remove('nb-col-edge');
+  tableGuide.hidden = true;
+});
+body.addEventListener('pointerdown', e => {
+  if (e.button !== 0 || !e.isPrimary || e.pointerType === 'touch' || tableResize || imgGesture) return;
+  const edge = tableEdgeAt(e.clientX, e.clientY, e.target);
+  if (!edge) return;
+  e.preventDefault();
+  startTableResize(e, edge);
+});
+// Agarrar el borde no debe poner el cursor ni empezar a seleccionar texto.
+body.addEventListener('mousedown', e => { if (tableResize) e.preventDefault(); });
+body.addEventListener('dblclick', e => {
+  const edge = tableEdgeAt(e.clientX, e.clientY, e.target);
+  if (!edge) return;
+  e.preventDefault();
+  const cell = edge.table.rows[0].cells[edge.outer ? 0 : edge.index];
+  if (edge.outer) fullWidthTable(cell);
+  else equalizeColumns(cell);
+});
+
+// Clic derecho en una celda: las opciones de la tabla. Con texto seleccionado, o con Mayús, el menú de siempre.
+body.addEventListener('contextmenu', e => {
+  const el = e.target.nodeType === Node.ELEMENT_NODE ? e.target : e.target.parentElement;
+  const cell = el && el.closest('td, th');
+  if (!cell || !body.contains(cell) || e.shiftKey) return;
+  const sel = getSelection();
+  if (sel.rangeCount && !sel.isCollapsed && cell.contains(sel.getRangeAt(0).commonAncestorContainer)) return;
+  e.preventDefault();
+  openTableCtx(cell, 'all', { x: e.clientX, y: e.clientY });
+});
+
+for (const [grip, scope] of [[gripRow, 'row'], [gripCol, 'col']]) {
+  grip.addEventListener('mousedown', e => e.preventDefault());
+  grip.addEventListener('click', () => toggleGripMenu(scope, grip));
+}
+tableCtx.addEventListener('mousedown', e => e.preventDefault());
+tableCtx.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('pointerdown', e => {
+  if (!tableCtx.hidden && !tableCtx.contains(e.target) && !gripRow.contains(e.target) && !gripCol.contains(e.target)) closeTableCtx();
+}, true);
+document.addEventListener('keydown', e => {
+  if (tableCtx.hidden) return;
+  if (e.key === 'Escape') e.preventDefault();
+  closeTableCtx();
+}, true);
+$('pageScroller').addEventListener('scroll', () => { closeTableCtx(); paintTableGrips(); });
+window.addEventListener('resize', () => { closeTableCtx(); paintTableGrips(); });
+body.addEventListener('input', paintTableGrips);
+new ResizeObserver(paintTableGrips).observe(body);
+
+// Tab y Mayús+Tab pasan de celda en celda; Tab en la última agrega una fila, como en Word.
+// Enter al principio de una tabla que está arriba del todo abre una línea encima para escribir.
+// Ctrl+Enter agrega una fila debajo; Ctrl+Mayús+Retroceso elimina la del cursor.
+function tableKey(e) {
+  if (e.defaultPrevented || e.isComposing || picker) return;
+  if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+    const cell = caretCell();
+    if (!cell) return;
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); insertRow(true, cell); }
+    else if (e.key === 'Backspace' && e.shiftKey) { e.preventDefault(); deleteRow(cell); }
+    return;
+  }
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  if (e.key === 'Backspace') { backspaceAfterTable(e); return; }
+  const cell = (e.key === 'Tab' || e.key === 'Enter') && caretCell();
+  if (!cell) return;
+  const table = cell.closest('table');
+  if (e.key === 'Tab') {
+    const cells = [...table.querySelectorAll('td, th')];
+    const next = cells[cells.indexOf(cell) + (e.shiftKey ? -1 : 1)];
+    // En la primera celda, Mayús+Tab sigue su curso y saca el foco del texto.
+    if (!next && e.shiftKey) return;
+    e.preventDefault();
+    if (next) caretInto(next, 'select');
+    else editTable((copy, row) => { addRow(copy, row, true); return [row + 1, 0]; });
+    return;
+  }
+  if (e.shiftKey || cell !== table.rows[0].cells[0]) return;
+  const prev = table.previousElementSibling;
+  if (table.parentNode !== body || (prev && prev.tagName !== 'TABLE')) return;
+  const range = selectionRange();
+  if (!range.collapsed || !caretAtStart(cell, range)) return;
+  e.preventDefault();
+  const line = h('p', {}, h('br'));
+  table.before(line);
+  caretInto(line);
+  markDirty();
+  paintEmptyBody();
+}
+
+// Chrome, al borrar hacia atrás al principio de la línea que sigue a una tabla, le quita el párrafo
+// (y con él su marcador) o deja el cursor suelto fuera de cualquier línea. Aquí se entra a la última
+// celda; si la línea está vacía y no es la última de la hoja, además se borra.
+function backspaceAfterTable(e) {
+  const range = selectionRange();
+  if (!range || !range.collapsed) return;
+  const block = caretBlock(range);
+  const table = block && block.previousSibling;
+  if (!table || table.nodeName !== 'TABLE' || !caretAtStart(block, range)) return;
+  e.preventDefault();
+  if (block.nextSibling && [...block.childNodes].every(node => node.nodeName === 'BR')) {
+    const line = document.createRange();
+    line.selectNode(block);
+    restoreSelection(line);
+    document.execCommand('delete');
+  }
+  const last = table.rows[table.rows.length - 1];
+  if (last && last.cells.length) caretInto(last.cells[last.cells.length - 1], 'end');
+}
 
 /* ---------- Checklist ---------- */
 
@@ -1634,6 +2689,7 @@ const checkItem = (text, done = false) => ({ id: uuid(), text, done });
 const checkTexts = page => page.checklist.map(item => cleanLine(item.text)).filter(Boolean);
 
 // Bloques, viñetas y <br> separan líneas; las líneas vacías no cuentan.
+// Cada fila de una tabla es una línea, con sus celdas separadas por " · ".
 function htmlLines(html) {
   const lines = [];
   let line = '';
@@ -1648,6 +2704,11 @@ function htmlLines(html) {
       else if (child.nodeType !== Node.ELEMENT_NODE) continue;
       else if (child.tagName === 'BR') breakLine();
       else if (INLINE_TAGS.has(child.tagName)) walk(child);
+      else if (child.tagName === 'TR') {
+        breakLine();
+        line = [...child.children].map(flatText).filter(Boolean).join(' · ');
+        breakLine();
+      }
       else {
         breakLine();
         walk(child);
@@ -1704,7 +2765,7 @@ function toText() {
   const page = currentPage();
   const texts = checkTexts(page);
   if (JSON.stringify(texts) !== JSON.stringify(htmlLines(page.html))) {
-    if (/<(b|strong|i|em|u|h2|h3|ul|ol|span|font|a)\b/i.test(page.html)) toast('La lista cambió: el texto vuelve sin formato ni enlaces');
+    if (/<(b|strong|i|em|u|h2|h3|ul|ol|span|font|a|table)\b/i.test(page.html)) toast('La lista cambió: el texto vuelve sin formato, enlaces ni tablas');
     page.html = texts.map(text => h('p', { text }).outerHTML).join('');
   }
   body.innerHTML = sanitizeNote(page.html);
@@ -2435,7 +3496,7 @@ const PICKER_RECENT = 8;
 const PICKER_LIMIT = 20;
 const PICKER_MAX_QUERY = 60;
 const TRAIL_MAX = 50;
-const BLOCK_TAGS = new Set(['P', 'DIV', 'LI', 'H2', 'H3']);
+const BLOCK_TAGS = new Set(['P', 'DIV', 'LI', 'H2', 'H3', 'TD', 'TH']);
 
 const pageName = page => page.title.trim() || 'Sin título';
 const bookName = page => (books.get(page.notebookId) || { name: '' }).name;
@@ -3077,6 +4138,7 @@ linkPicker.addEventListener('mousedown', e => { if (e.target !== linkSearch) e.p
 
 body.addEventListener('keydown', e => {
   if (picker && picker.mode === 'inline' && !e.isComposing) pickerKey(e);
+  else tableKey(e);
 });
 body.addEventListener('blur', () => { if (picker && picker.mode === 'inline') closePicker(); });
 document.addEventListener('selectionchange', () => {
@@ -3365,6 +4427,8 @@ $('pageTitle').addEventListener('keydown', e => {
 });
 body.addEventListener('beforeinput', rememberMarks);
 body.addEventListener('input', e => {
+  bodyEdits++;
+  keepLineAfterTable();
   markDirty();
   paintEmptyBody();
   if (e.inputType === 'insertParagraph') dedupeMarks(body);
@@ -3393,14 +4457,16 @@ body.addEventListener('paste', e => {
   const data = e.clipboardData;
   if (pasteImages(data)) return;
   const html = data.getData('text/html');
-  const clean = html ? sanitizeNote(html, { marks: false }) : '';
+  // Una tabla pegada dentro de una celda se aplana: no hay tablas dentro de tablas.
+  const clean = html ? sanitizeNote(html, { marks: false, inTable: !!caretCell() }) : '';
   selectImage(null);
   const plain = data.getData('text/plain');
   // Una @ en lo pegado no abre el buscador: eso es solo para lo que escribes.
   pasting = true;
   try {
     if (clean) {
-      document.execCommand('insertHTML', false, clean);
+      const range = selectionRange();
+      document.execCommand('insertHTML', false, clean + (range && /<\/table>$/.test(clean) ? lineAfter(range) : ''));
       paintLinks();
     } else if (plain) document.execCommand('insertText', false, plain);
     else if (/<img/i.test(html)) toast('Esa imagen está en internet. Cópiala con "Copiar imagen" para pegarla.');
